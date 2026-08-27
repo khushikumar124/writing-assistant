@@ -1,0 +1,789 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Design system: "Workbench"
+ *
+ * The app is a maker's desk, not a dashboard. Thoughts are scraps of paper you
+ * pin down; ideas are cards in a deck; shipping something is a trophy on a
+ * shelf. So the interface is built out of *objects* — things with outlines,
+ * weight, and a shadow they cast onto the page — rather than the flat, evenly
+ * spaced rectangles every other web app is made of.
+ *
+ * Three rules hold it together, all of them applied with a light hand — the
+ * point is a human touch, not a shouty toy:
+ *
+ *   1. SOFT OUTLINES. Surfaces have a thin warm border, not a hairline grey
+ *      and not a heavy black stroke.
+ *   2. SMALL OFFSET SHADOWS. Zero-blur, low-contrast, 2px. A card sits ON the
+ *      page rather than glowing above it — but quietly.
+ *   3. THINGS MOVE WHEN TOUCHED. Hover lifts a little, press settles it back
+ *      down. Enough spring to feel alive, not enough to be distracting.
+ *
+ * The one exception is the writing canvas itself, which stays quiet and
+ * uncluttered — the chrome can be a toybox, but the page you write on has to
+ * get out of the way.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* The play palette. Named by what they are, so a card can ask for "sage"
+     without knowing the hex. */
+  --color-ink: var(--ink);
+  --color-sage: var(--sage);
+  --color-olive: var(--olive);
+  --color-ochre: var(--ochre);
+  --color-clay: var(--clay);
+  --color-coral: var(--coral);
+  --color-rose: var(--rose);
+  --color-paper: var(--paper);
+}
+
+:root {
+  /* Small. Paper is cut, not radiused — heavy rounding is what makes a page of
+     cards read as a generic template. */
+  --radius: 0.35rem;
+
+  /* Ink is the text colour and the base for outlines: warm cream on petrol, so
+     nothing on the page is a dead neutral. */
+  --ink: #f6ebd5;
+  --line: #49605c;
+  --shade: rgba(19, 31, 30, 0.5);
+
+  /* The accent palette. Four warm/cool accents against the petrol environment,
+     reused across the six token names the components already reference:
+       ochre  → mustard    #e7b873  primary accent, CTAs, highlights
+       clay   → terracotta #d98978  secondary highlights and statuses
+       coral  → terracotta #d98978
+       rose   → purple     #a993b8  occasional category/status accents
+       sage   → light teal #91b8b1  secondary interactive elements
+       olive  → light teal #91b8b1 */
+  --sage: #91b8b1;
+  --olive: #91b8b1;
+  --ochre: #e7b873;
+  --clay: #d98978;
+  --coral: #d98978;
+  --rose: #a993b8;
+  --paper: #304745;
+
+  --background: #263b3a;
+  --foreground: #f6ebd5;
+  --card: #304745;
+  --card-foreground: #f6ebd5;
+  --popover: #304745;
+  --popover-foreground: #f6ebd5;
+
+  --primary: #e7b873;
+  --primary-foreground: #263b3a;
+  --secondary: #91b8b1;
+  --secondary-foreground: #263b3a;
+
+  --muted: #49605c;
+  --muted-foreground: #b8b9a6;
+  --accent: #e7b873;
+  --accent-foreground: #263b3a;
+  --destructive: #d98978;
+  --destructive-foreground: #263b3a;
+
+  --border: #49605c;
+  --input: #263b3a;
+  --ring: #e7b873;
+}
+
+.dark {
+  /* The same petrol environment, one step deeper, so the existing light/dark
+     toggle still does something visible. Accents are identical to `:root`. */
+  --ink: #f6ebd5;
+  --line: #3f5450;
+  --shade: rgba(12, 20, 19, 0.55);
+
+  --sage: #91b8b1;
+  --olive: #91b8b1;
+  --ochre: #e7b873;
+  --clay: #d98978;
+  --coral: #d98978;
+  --rose: #a993b8;
+  --paper: #2a403e;
+
+  --background: #1e2e2d;
+  --foreground: #f6ebd5;
+  --card: #2a403e;
+  --card-foreground: #f6ebd5;
+  --popover: #2a403e;
+  --popover-foreground: #f6ebd5;
+
+  --primary: #e7b873;
+  --primary-foreground: #1e2e2d;
+  --secondary: #91b8b1;
+  --secondary-foreground: #1e2e2d;
+
+  --muted: #3f5450;
+  --muted-foreground: #b8b9a6;
+  --accent: #e7b873;
+  --accent-foreground: #1e2e2d;
+  --destructive: #d98978;
+  --destructive-foreground: #1e2e2d;
+
+  --border: #3f5450;
+  --input: #1e2e2d;
+  --ring: #e7b873;
+}
+
+@layer base {
+  * {
+    @apply outline-ring/50;
+    border-color: var(--line);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Nunito", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 400;
+
+    /* Faint grid, like engineering paper. Sells "desk" without a texture image
+       and costs nothing to render. */
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  :root {
+    --grid-line: rgba(246, 235, 213, 0.035);
+  }
+  .dark {
+    --grid-line: rgba(246, 235, 213, 0.03);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    /* Fraunces with its WONK axis on — the letterforms tilt and swell very
+       slightly, which is where most of the personality comes from. Weight is
+       kept at 600 so headings read as characterful, not shouted. */
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-variation-settings:
+      "SOFT" 30,
+      "WONK" 1;
+    letter-spacing: -0.015em;
+    line-height: 1.12;
+  }
+
+  h1 {
+    @apply text-4xl md:text-5xl;
+  }
+  h2 {
+    @apply text-2xl md:text-3xl;
+  }
+  h3 {
+    @apply text-xl md:text-2xl;
+  }
+
+  button,
+  [role="button"],
+  .btn-label {
+    font-family: "Nunito", ui-sans-serif, sans-serif;
+    font-weight: 600;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [type="button"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    @apply cursor-pointer;
+  }
+}
+
+@layer components {
+  .container {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .flex {
+    min-height: 0;
+    min-width: 0;
+  }
+
+  @media (min-width: 640px) {
+    .container {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container {
+      padding-left: 2rem;
+      padding-right: 2rem;
+      max-width: 1280px;
+    }
+  }
+
+  /* ─── Objects ────────────────────────────────────────────────────────────
+   * `sticker` is the base for everything with a body: cards, dialogs, chips,
+   * buttons. Outline plus offset shadow, no blur.
+   * ──────────────────────────────────────────────────────────────────────── */
+
+  .sticker {
+    border: 1px solid var(--line);
+    box-shadow: 2px 2px 0 var(--shade);
+  }
+
+  .sticker-sm {
+    border: 1px solid var(--line);
+    box-shadow: 1px 1px 0 var(--shade);
+  }
+
+  .sticker-lg {
+    border: 1px solid var(--line);
+    box-shadow: 3px 3px 0 var(--shade);
+  }
+
+  /* Hover lifts the object slightly and lengthens its shadow; press settles it
+     back down. The shadow moving opposite to the object is what sells it as a
+     physical thing — it works at 2px just as well as at 6px. */
+  .pressable {
+    transition:
+      transform 120ms cubic-bezier(0.2, 0.9, 0.3, 1.3),
+      box-shadow 120ms ease-out;
+  }
+
+  .pressable:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 var(--shade);
+  }
+
+  .pressable:active {
+    transform: translate(1px, 1px);
+    box-shadow: 0 0 0 var(--shade);
+  }
+
+  .pressable-lg:hover {
+    transform: translate(-1px, -2px);
+    box-shadow: 4px 5px 0 var(--shade);
+  }
+
+  .pressable-lg:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--shade);
+  }
+
+  /* Kept for the older call sites; now means "lift like an object". */
+  .card-lift {
+    border: 1px solid var(--line);
+    box-shadow: 2px 2px 0 var(--shade);
+    transition:
+      transform 140ms cubic-bezier(0.2, 0.9, 0.3, 1.3),
+      box-shadow 140ms ease-out;
+  }
+
+  .card-lift:hover {
+    transform: translate(-1px, -2px);
+    box-shadow: 4px 5px 0 var(--shade);
+  }
+
+  /* ─── Sticky notes ───────────────────────────────────────────────────────
+   * Raw thoughts are scraps, so they sit at a slight angle. The rotation is
+   * keyed off nth-child rather than random, so a note doesn't jump to a new
+   * angle every time React re-renders it.
+   * ──────────────────────────────────────────────────────────────────────── */
+
+  .scrap {
+    position: relative;
+    border: 1px solid var(--line);
+    box-shadow: 2px 2px 0 var(--shade);
+    transition:
+      transform 160ms cubic-bezier(0.2, 0.9, 0.3, 1.3),
+      box-shadow 160ms ease-out;
+  }
+
+  .scrap:nth-child(4n + 1) {
+    transform: rotate(-0.35deg);
+  }
+  .scrap:nth-child(4n + 2) {
+    transform: rotate(0.25deg);
+  }
+  .scrap:nth-child(4n + 3) {
+    transform: rotate(0.45deg);
+  }
+  .scrap:nth-child(4n + 4) {
+    transform: rotate(-0.2deg);
+  }
+
+  .scrap:hover {
+    transform: rotate(0deg) translate(-1px, -2px);
+    box-shadow: 4px 5px 0 var(--shade);
+  }
+
+  /* Selected notes straighten up and pick up the accent — you're gathering
+     them into a pile. */
+  .scrap-picked,
+  .scrap-picked:nth-child(4n + 1),
+  .scrap-picked:nth-child(4n + 2),
+  .scrap-picked:nth-child(4n + 3),
+  .scrap-picked:nth-child(4n + 4) {
+    transform: rotate(0deg) translate(-1px, -2px);
+    box-shadow: 3px 4px 0 color-mix(in srgb, var(--sage) 45%, transparent);
+    border-color: var(--sage);
+  }
+
+  /* ─── Ornament ───────────────────────────────────────────────────────────── */
+
+  /* Little hand-drawn underline for section headings. */
+  .squiggle-under {
+    position: relative;
+    display: inline-block;
+  }
+
+  .squiggle-under::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -0.45rem;
+    height: 7px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 7' preserveAspectRatio='none'%3E%3Cpath d='M0 5 Q 15 0 30 4 T 60 4 T 90 4 T 120 3' stroke='%23e7b873' stroke-width='3.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+  }
+
+  /* Diagonal barber-pole fill, for "in progress" strips and empty states. */
+  .hatched {
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 7px,
+      var(--muted) 7px,
+      var(--muted) 14px
+    );
+  }
+
+  /* ─── Stationery ─────────────────────────────────────────────────────────
+   * The pieces that stop the app looking like a grid of identical rounded
+   * rectangles. Each one is a real object from a writer's desk: a ruled index
+   * card, a rubber stamp, a torn ticket stub, a label on a machine.
+   * ──────────────────────────────────────────────────────────────────────── */
+
+  /* Typewriter voice, for labels, counts, dates and anything machine-stamped.
+     Small, letterspaced and uppercase — this single treatment does most of the
+     vintage work, because it contrasts against the soft Fraunces headings. */
+  .typewriter {
+    font-family: "Courier Prime", ui-monospace, "Courier New", monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+
+  .typewriter-num {
+    font-family: "Courier Prime", ui-monospace, "Courier New", monospace;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* An index card: faint blue-grey rules and a margin line down the left, the
+     way a 5×3 actually looks. Corners are barely rounded — paper is cut, not
+     radiused. */
+  .index-card {
+    border-radius: 3px;
+    background-color: var(--card);
+    background-image:
+      repeating-linear-gradient(
+        transparent,
+        transparent 27px,
+        var(--rule-line) 27px,
+        var(--rule-line) 28px
+      );
+    background-position: 0 6px;
+  }
+
+  /* The red margin rule, as a border rather than a background so it survives
+     any padding the card is given. */
+  .index-card-margin {
+    border-left: 2px solid color-mix(in srgb, var(--rose) 45%, transparent);
+  }
+
+  /* A rubber stamp: double outline, letterspaced, knocked slightly askew, and
+     never quite fully opaque — like ink pressed unevenly onto paper. */
+  .stamp {
+    font-family: "Courier Prime", ui-monospace, "Courier New", monospace;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.65rem;
+    padding: 0.2rem 0.5rem;
+    border: 2px solid currentColor;
+    border-radius: 3px;
+    opacity: 0.85;
+    transform: rotate(-1.5deg);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 25%, transparent);
+    white-space: nowrap;
+  }
+
+  /* A torn ticket stub: semicircles bitten out of the left and right edges. */
+  .ticket {
+    position: relative;
+    border-radius: 4px;
+  }
+
+  .ticket::before,
+  .ticket::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--background);
+    border: 1px solid var(--line);
+    transform: translateY(-50%);
+  }
+
+  .ticket::before {
+    left: -10px;
+    clip-path: inset(0 0 0 50%);
+  }
+
+  .ticket::after {
+    right: -10px;
+    clip-path: inset(0 50% 0 0);
+  }
+
+  /* An arcade score panel: squared off, with corner ticks drawn in. Used for
+     counters, where the retro register is doing the work. */
+  .panel {
+    position: relative;
+    border-radius: 4px;
+  }
+
+  .panel::before,
+  .panel::after {
+    content: "";
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    border-color: currentColor;
+    border-style: solid;
+    opacity: 0.5;
+  }
+
+  .panel::before {
+    top: 6px;
+    left: 6px;
+    border-width: 2px 0 0 2px;
+  }
+
+  .panel::after {
+    bottom: 6px;
+    right: 6px;
+    border-width: 0 2px 2px 0;
+  }
+
+  /* A machine label: squared, mono, with a punched hole at each end. */
+  .plate {
+    border-radius: 2px;
+  }
+
+  /* ─── Pinboard ───────────────────────────────────────────────────────────
+   * Notes don't belong in a single-file stack — they belong pinned to a board
+   * in columns, each one fixed down with a pin or a strip of tape.
+   * ──────────────────────────────────────────────────────────────────────── */
+
+  .board {
+    column-gap: 1.25rem;
+    column-count: 1;
+  }
+
+  @media (min-width: 768px) {
+    .board {
+      column-count: 2;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .board {
+      column-count: 3;
+    }
+  }
+
+  /* `inline-block` alongside `break-inside: avoid` is what actually stops a
+     note being sliced in half at a column boundary — `break-inside` alone is
+     unreliable once the child is transformed (our notes are rotated). */
+  .board > * {
+    break-inside: avoid;
+    display: inline-block;
+    width: 100%;
+    margin-bottom: 1.25rem;
+  }
+
+  /* A pushpin: a coloured head with a highlight, pressed into the top edge. */
+  .pinned {
+    padding-top: 1.5rem;
+  }
+
+  .pinned::before {
+    content: "";
+    position: absolute;
+    top: 9px;
+    left: 50%;
+    width: 13px;
+    height: 13px;
+    margin-left: -6.5px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 33% 30%, rgba(255, 255, 255, 0.85), transparent 55%),
+      var(--pin-color, var(--coral));
+    box-shadow: 0 1.5px 2px rgba(0, 0, 0, 0.28);
+  }
+
+  /* Rotate the pin colour through the palette by position, so a board of notes
+     looks like real pins from a jar rather than a repeated asset. */
+  .board > :nth-child(5n + 1) .pinned,
+  .pinned:nth-child(5n + 1) {
+    --pin-color: var(--coral);
+  }
+  .board > :nth-child(5n + 2) .pinned,
+  .pinned:nth-child(5n + 2) {
+    --pin-color: var(--ochre);
+  }
+  .board > :nth-child(5n + 3) .pinned,
+  .pinned:nth-child(5n + 3) {
+    --pin-color: var(--sage);
+  }
+  .board > :nth-child(5n + 4) .pinned,
+  .pinned:nth-child(5n + 4) {
+    --pin-color: var(--rose);
+  }
+  .board > :nth-child(5n + 5) .pinned,
+  .pinned:nth-child(5n + 5) {
+    --pin-color: var(--olive);
+  }
+
+  /* A strip of masking tape across the top-left corner. */
+  .taped::after {
+    content: "";
+    position: absolute;
+    top: -8px;
+    left: 14px;
+    width: 58px;
+    height: 17px;
+    background: color-mix(in srgb, var(--ochre) 38%, transparent);
+    border-left: 1px solid color-mix(in srgb, var(--ochre) 55%, transparent);
+    border-right: 1px solid color-mix(in srgb, var(--ochre) 55%, transparent);
+    transform: rotate(-4deg);
+    pointer-events: none;
+  }
+
+  /* A torn bottom edge, for things that were ripped off a pad. */
+  .torn-bottom {
+    -webkit-mask-image: linear-gradient(#000 0 0),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='8' viewBox='0 0 40 8'%3E%3Cpath d='M0 0h40v3l-5 2 -5-2 -5 3 -5-3 -5 2 -5-2 -5 3 -5-3z' fill='%23000'/%3E%3C/svg%3E");
+    -webkit-mask-size:
+      100% calc(100% - 8px),
+      40px 8px;
+    -webkit-mask-position:
+      top left,
+      bottom left;
+    -webkit-mask-repeat: no-repeat, repeat-x;
+    mask-image: linear-gradient(#000 0 0),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='8' viewBox='0 0 40 8'%3E%3Cpath d='M0 0h40v3l-5 2 -5-2 -5 3 -5-3 -5 2 -5-2 -5 3 -5-3z' fill='%23000'/%3E%3C/svg%3E");
+    mask-size:
+      100% calc(100% - 8px),
+      40px 8px;
+    mask-position:
+      top left,
+      bottom left;
+    mask-repeat: no-repeat, repeat-x;
+  }
+
+  /* An oversized ghost numeral sitting behind a panel's content. */
+  .ghost-figure {
+    position: absolute;
+    right: 0.5rem;
+    bottom: -0.75rem;
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 900;
+    font-size: 5.5rem;
+    line-height: 1;
+    opacity: 0.09;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* A divider with a centre ornament, instead of a plain grey line. */
+  .rule-orn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--muted-foreground);
+  }
+
+  .rule-orn::before,
+  .rule-orn::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  :root {
+    --rule-line: rgba(246, 235, 213, 0.09);
+  }
+  .dark {
+    --rule-line: rgba(246, 235, 213, 0.08);
+  }
+
+  /* ─── Motion ─────────────────────────────────────────────────────────────── */
+
+  @keyframes popIn {
+    0% {
+      opacity: 0;
+      transform: translateY(10px) scale(0.96);
+    }
+    60% {
+      opacity: 1;
+      transform: translateY(-2px) scale(1.01);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes wiggle {
+    0%,
+    100% {
+      transform: rotate(-2.5deg);
+    }
+    50% {
+      transform: rotate(2.5deg);
+    }
+  }
+
+  @keyframes bobble {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+
+  @keyframes flicker {
+    0%,
+    100% {
+      transform: scale(1) rotate(-2deg);
+    }
+    50% {
+      transform: scale(1.12) rotate(2deg);
+    }
+  }
+
+  .animate-in {
+    animation: popIn 380ms cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+  }
+
+  /* Children cascade in rather than appearing all at once. */
+  .animate-in-stagger > * {
+    animation: popIn 380ms cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+  }
+  .animate-in-stagger > :nth-child(1) {
+    animation-delay: 0ms;
+  }
+  .animate-in-stagger > :nth-child(2) {
+    animation-delay: 55ms;
+  }
+  .animate-in-stagger > :nth-child(3) {
+    animation-delay: 110ms;
+  }
+  .animate-in-stagger > :nth-child(4) {
+    animation-delay: 165ms;
+  }
+  .animate-in-stagger > :nth-child(5) {
+    animation-delay: 220ms;
+  }
+  .animate-in-stagger > :nth-child(6) {
+    animation-delay: 275ms;
+  }
+
+  .hover-wiggle:hover {
+    animation: wiggle 350ms ease-in-out;
+  }
+
+  .animate-bobble {
+    animation: bobble 2.4s ease-in-out infinite;
+  }
+
+  .animate-flicker {
+    animation: flicker 1.6s ease-in-out infinite;
+  }
+
+  /* Anyone who has asked their OS for less motion gets none of the above. */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-in,
+    .animate-in-stagger > *,
+    .hover-wiggle:hover,
+    .animate-bobble,
+    .animate-flicker {
+      animation: none !important;
+    }
+
+    .pressable,
+    .pressable-lg,
+    .card-lift,
+    .scrap {
+      transition: none;
+    }
+
+    .pressable:hover,
+    .pressable-lg:hover,
+    .card-lift:hover,
+    .scrap:hover {
+      transform: none;
+    }
+  }
+}

@@ -1,0 +1,39 @@
+# Fly.io deployment. `fly launch --no-deploy` will offer to overwrite this —
+# decline, because the volume mount and the single-machine constraint below are
+# both load-bearing for a SQLite app.
+app = "writing-assistant"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3000"
+  DATABASE_URL = "/data/app.db"
+
+# SQLite is a file on disk, so the machine needs one that survives deploys.
+[mounts]
+  source = "writing_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  # One machine, always. A second machine would get its own volume and its own
+  # divergent copy of the database — the classic way to lose half your users'
+  # writing without any error appearing anywhere.
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/api/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

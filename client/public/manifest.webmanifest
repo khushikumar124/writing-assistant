@@ -1,0 +1,54 @@
+{
+  "name": "Writing Assistant",
+  "short_name": "Writing",
+  "description": "Capture the thought before it's an essay.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#263b3a",
+  "theme_color": "#e7b873",
+  "categories": ["productivity", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Capture a thought",
+      "short_name": "Capture",
+      "url": "/thoughts?capture=1",
+      "description": "Open straight into the capture box"
+    },
+    {
+      "name": "Search",
+      "short_name": "Search",
+      "url": "/search"
+    }
+  ],
+  "share_target": {
+    "action": "/thoughts",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}
