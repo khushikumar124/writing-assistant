@@ -2,7 +2,11 @@
 # decline, because the volume mount and the single-machine constraint below are
 # both load-bearing for a SQLite app.
 app = "writing-assistant"
-primary_region = "iad"
+# Mumbai. With one machine there is no edge to fall back on, so the region IS
+# the latency for every user — and an autosaving editor feels the difference.
+# Virginia would add roughly 200ms round trip for Indian users.
+# Confirm the code is still current with: fly platform regions
+primary_region = "bom"
 
 [build]
   dockerfile = "Dockerfile"

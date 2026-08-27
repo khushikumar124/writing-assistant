@@ -19,7 +19,10 @@ These need accounts in your name. Nobody else can create them for you.
 
 ### Required
 
-- **A host account** — [fly.io](https://fly.io) is assumed below.
+- **A host account** — [fly.io](https://fly.io) is assumed below. `fly.toml`
+  deploys to **Mumbai (`bom`)**; the volume must be created in the same region
+  or the machine will not start. Check the code is current with
+  `fly platform regions`.
 - **A session secret** — generate it locally:
   ```bash
   openssl rand -base64 32
@@ -77,7 +80,7 @@ Create the volume the database lives on (size it generously; text is small but
 growing a volume later is more annoying than paying for 3GB now):
 
 ```bash
-fly volumes create writing_data --size 3 --region iad
+fly volumes create writing_data --size 3 --region bom
 ```
 
 Set the secrets:
@@ -163,13 +166,34 @@ fly ssh sftp get /data/backup.db
 
 ## Notes on what is not here
 
-**Phone-number sign-in.** Deliberately not built. It needs an SMS provider
-(Twilio et al), costs real money per message, and in the US requires A2P 10DLC
-brand registration — days to weeks of paperwork before the first message sends.
-For a writing tool the audience is at a keyboard with an email address; Google
-sign-in covers the same "no new password" convenience for free. If you still
-want it later, the shape is a `phone` column plus a one-time-code table, and the
-existing rate limiter already has the right buckets.
+**Phone-number sign-in.** Deliberately not built, and the barrier is higher in
+India than almost anywhere else.
+
+Sending application-to-person SMS to Indian numbers requires **TRAI DLT
+registration**: you register as a Principal Entity on a telecom operator's DLT
+portal (Jio, Airtel, Vi, BSNL), then separately register your sender header and
+*every message template*, each of which is reviewed before it can send. It
+generally expects business documentation — GST or company PAN rather than a
+personal one — plus a registration fee and a wait measured in days to weeks.
+Unregistered traffic to Indian numbers is filtered by the operators, so this is
+not a step that can be skipped.
+
+The way around doing that yourself is a hosted identity provider that owns the
+DLT relationship — Firebase Authentication being the obvious one — at a
+per-verification cost and the price of a new dependency in the auth path.
+Confirm current India pricing before committing; SMS pumping fraud has made
+Indian verification traffic expensive and the terms move.
+
+None of that is worth it here. This is a tool people use at a keyboard, and
+Google sign-in already delivers the "no new password to remember" convenience
+for free, with the highest Android share of any large market behind it. If it
+ever becomes necessary, the shape is a `phone` column plus a one-time-code
+table, and the existing rate limiter already has suitable buckets.
+
+**Data protection (India).** Holding other people's unpublished writing brings
+the DPDP Act 2023 into scope for Indian users. The main practical gaps today are
+a published privacy notice and a self-service "delete my account" that actually
+erases rather than soft-deletes. Worth closing before you promote this widely.
 
 **Scaling past one machine.** The moment you want two, SQLite has to go. The
 migration path is Postgres (Neon, Supabase, or Fly Postgres): Drizzle's query
