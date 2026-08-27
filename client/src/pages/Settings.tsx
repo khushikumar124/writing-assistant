@@ -1,13 +1,21 @@
 import AppShell from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { trpc } from "@/lib/trpc";
-import { PASSWORD_MIN_LENGTH } from "@shared/const";
+import { useAuth } from "@/hooks/useAuth";
+import { Download, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Link } from "wouter";
@@ -25,8 +33,8 @@ export default function Settings() {
 
         <ProfileSection />
         <AppearanceSection />
-        <PasswordSection />
         <DataSection />
+        <DangerSection />
       </div>
     </AppShell>
   );
@@ -173,63 +181,35 @@ function AppearanceSection() {
   );
 }
 
-function PasswordSection() {
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-
-  const change = trpc.auth.changePassword.useMutation({
-    onSuccess: () => {
-      setCurrent("");
-      setNext("");
-      toast.success("Password changed.");
-    },
-    onError: error => toast.error(error.message),
-  });
-
-  return (
-    <Card className="space-y-5 p-6">
-      <h2 className="text-xl">Password</h2>
-
-      <div className="space-y-2">
-        <Label htmlFor="settings-current">Current password</Label>
-        <Input
-          id="settings-current"
-          type="password"
-          autoComplete="current-password"
-          value={current}
-          onChange={event => setCurrent(event.target.value)}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="settings-next">New password</Label>
-        <Input
-          id="settings-next"
-          type="password"
-          autoComplete="new-password"
-          minLength={PASSWORD_MIN_LENGTH}
-          value={next}
-          onChange={event => setNext(event.target.value)}
-          placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
-        />
-      </div>
-
-      <Button
-        variant="outline"
-        disabled={
-          !current || next.length < PASSWORD_MIN_LENGTH || change.isPending
-        }
-        onClick={() =>
-          change.mutate({ currentPassword: current, newPassword: next })
-        }
-      >
-        {change.isPending ? "Changing…" : "Change password"}
-      </Button>
-    </Card>
-  );
-}
-
 function DataSection() {
+  const [downloading, setDownloading] = useState(false);
+  const utils = trpc.useUtils();
+
+  /**
+   * Fetched on demand rather than with a live query: this is a file someone
+   * asks for once, not state the page needs to hold.
+   */
+  const download = async () => {
+    setDownloading(true);
+    try {
+      const data = await utils.account.exportData.fetch();
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `writing-assistant-export-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success("Downloaded.");
+    } catch {
+      toast.error("Couldn't build the export. Try again.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <Card className="space-y-4 p-6">
       <h2 className="text-xl">Your writing</h2>
@@ -237,9 +217,121 @@ function DataSection() {
         Deleted ideas and thoughts sit in the bin for 30 days before they're
         removed for good.
       </p>
-      <Button asChild variant="outline">
-        <Link href="/trash">Open the bin</Link>
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild variant="outline">
+          <Link href="/trash">Open the bin</Link>
+        </Button>
+        <Button variant="outline" onClick={download} disabled={downloading}>
+          {downloading ? (
+            <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+          ) : (
+            <Download className="mr-2 size-4" aria-hidden />
+          )}
+          Download everything
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        One JSON file with every thought, idea and draft — including what's in
+        the bin.
+      </p>
+    </Card>
+  );
+}
+
+/**
+ * Deleting an account is the one action in the app with no undo, so it asks for
+ * the account's own email address rather than a generic "DELETE" that muscle
+ * memory can type without reading.
+ */
+function DangerSection() {
+  const [open, setOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+
+  const { data: profile } = trpc.profile.mine.useQuery();
+  const { logout } = useAuth();
+  const utils = trpc.useUtils();
+
+  const remove = trpc.account.delete.useMutation({
+    onSuccess: async () => {
+      setOpen(false);
+      // The server already cleared the cookie; this resets the client to match
+      // and lands on the marketing page rather than a broken dashboard.
+      utils.auth.me.setData(undefined, null);
+      await utils.invalidate();
+      window.location.href = "/";
+    },
+    onError: error => toast.error(error.message),
+  });
+
+  const email = profile?.email ?? "";
+  const matches = confirmation.trim().toLowerCase() === email.toLowerCase();
+
+  return (
+    <Card className="space-y-4 border-destructive/40 p-6">
+      <h2 className="text-xl text-destructive">Delete your account</h2>
+      <p className="text-sm text-muted-foreground">
+        This removes your account and every thought, idea and draft in it,
+        immediately and permanently. It cannot be undone, and we cannot recover
+        it for you afterwards. Download your writing first if you want to keep
+        it.
+      </p>
+
+      <div className="flex flex-wrap gap-2">
+        <Button variant="destructive" onClick={() => setOpen(true)}>
+          Delete my account
+        </Button>
+        <Button variant="ghost" onClick={() => void logout()}>
+          Just sign out
+        </Button>
+      </div>
+
+      <Dialog
+        open={open}
+        onOpenChange={next => {
+          if (!next) setConfirmation("");
+          setOpen(next);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete your account for good?</DialogTitle>
+            <DialogDescription>
+              Everything goes: your thoughts, your ideas, your drafts, your
+              shipped shelf, and your public page if you have one. There is no
+              recovery.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="confirm-delete">
+                Type <span className="font-mono text-foreground">{email}</span>{" "}
+                to confirm
+              </Label>
+              <Input
+                id="confirm-delete"
+                autoComplete="off"
+                value={confirmation}
+                onChange={event => setConfirmation(event.target.value)}
+                placeholder={email}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setOpen(false)}>
+                Keep my account
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={!matches || remove.isPending}
+                onClick={() => remove.mutate({ confirmation })}
+              >
+                {remove.isPending ? "Deleting…" : "Delete everything"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

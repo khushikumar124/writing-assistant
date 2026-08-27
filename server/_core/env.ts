@@ -35,20 +35,16 @@ export const ENV = {
    * throwaway sandbox account — there is no shared demo login to hijack.
    */
   demoMode: process.env.DEMO_MODE !== "false",
-  /** Absolute base URL, used to build links inside emails. */
+  /** Absolute base URL. Used to build the OAuth redirect URI. */
   appUrl: (
     process.env.APP_URL ?? `http://localhost:${process.env.PORT ?? "3000"}`
   ).replace(/\/$/, ""),
-  /** Optional. Without it, outbound mail is logged to the console instead. */
-  resendApiKey: process.env.RESEND_API_KEY?.trim() || null,
   /**
    * Google sign-in turns itself on only when both halves are present, so a
    * deploy without them simply shows email/password and nothing breaks.
    */
   googleClientId: process.env.GOOGLE_CLIENT_ID?.trim() || null,
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET?.trim() || null,
-  mailFrom:
-    process.env.MAIL_FROM ?? "Writing Assistant <onboarding@resend.dev>",
 } as const;
 
 /** True when both Google credentials are configured. */
@@ -57,9 +53,6 @@ export const googleEnabled = (): boolean =>
 
 /** How long a sandbox account lives before it is purged, along with its writing. */
 export const DEMO_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
-
-/** Password reset links are short-lived by design. */
-export const PASSWORD_RESET_TTL_MS = 1000 * 60 * 60; // 1 hour
 
 /** Soft-deleted rows are purged for good after this long in the bin. */
 export const TRASH_RETENTION_MS = 1000 * 60 * 60 * 24 * 30; // 30 days

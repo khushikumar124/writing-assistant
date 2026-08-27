@@ -134,12 +134,7 @@ export default function Ideas() {
                 )}
 
                 <div className="mt-auto flex flex-wrap items-center gap-2 text-xs">
-                  <span
-                    className={cn(
-                      "shrink-0",
-                      statusClasses(idea.status)
-                    )}
-                  >
+                  <span className={cn("shrink-0", statusClasses(idea.status))}>
                     {statusLabel(idea.status)}
                   </span>
                   <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">

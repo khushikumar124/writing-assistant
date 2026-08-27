@@ -17,7 +17,6 @@ import path from "node:path";
 import {
   drafts,
   ideas,
-  passwordResets,
   prompts,
   research,
   userCategories,
@@ -41,7 +40,6 @@ export const schema = {
   drafts,
   rawThoughts,
   writingSessions,
-  passwordResets,
   prompts,
 };
 
@@ -79,10 +77,13 @@ export function getRawDb(): Database.Database {
   return cachedRaw!;
 }
 
-/** Strips the password digest before a user ever crosses the API boundary. */
+/**
+ * A user as the API returns it. Nothing on the row is secret now that there are
+ * no password digests, so this is identity — kept as a named function so every
+ * call site still passes through one place if that ever changes.
+ */
 export function toPublicUser(user: User): PublicUser {
-  const { passwordHash: _passwordHash, ...rest } = user;
-  return rest;
+  return user;
 }
 
 // ---------------------------------------------------------------------------
@@ -109,39 +110,10 @@ export async function findUserById(id: number): Promise<User | undefined> {
   return rows[0];
 }
 
-export async function createUser(input: {
-  email: string;
-  passwordHash: string;
-  name?: string | null;
-  role?: "user" | "admin";
-}): Promise<User> {
-  const [created] = await getDb()
-    .insert(users)
-    .values({
-      email: input.email.toLowerCase().trim(),
-      passwordHash: input.passwordHash,
-      name: input.name ?? null,
-      role: input.role ?? "user",
-      lastSignedIn: new Date(),
-    })
-    .returning();
-  return created;
-}
-
 export async function touchLastSignedIn(userId: number): Promise<void> {
   await getDb()
     .update(users)
     .set({ lastSignedIn: new Date() })
-    .where(eq(users.id, userId));
-}
-
-export async function updatePasswordHash(
-  userId: number,
-  passwordHash: string
-): Promise<void> {
-  await getDb()
-    .update(users)
-    .set({ passwordHash, updatedAt: new Date() })
     .where(eq(users.id, userId));
 }
 
@@ -174,7 +146,9 @@ export async function updateProfile(
   return updated;
 }
 
-export async function findUserByGoogleId(googleId: string): Promise<User | undefined> {
+export async function findUserByGoogleId(
+  googleId: string
+): Promise<User | undefined> {
   const rows = await getDb()
     .select()
     .from(users)
@@ -183,11 +157,7 @@ export async function findUserByGoogleId(googleId: string): Promise<User | undef
   return rows[0];
 }
 
-/**
- * Creates an account from a verified Google identity. `passwordHash` stays null
- * — these accounts sign in with Google and nothing else until they set a
- * password.
- */
+/** Creates an account from a verified Google identity. */
 export async function createGoogleUser(input: {
   email: string;
   googleId: string;
@@ -198,7 +168,6 @@ export async function createGoogleUser(input: {
     .insert(users)
     .values({
       email: input.email.toLowerCase().trim(),
-      passwordHash: null,
       googleId: input.googleId,
       name: input.name ?? null,
       avatarUrl: input.avatarUrl ?? null,
@@ -233,7 +202,6 @@ export async function linkGoogleId(
 
 export async function createDemoUser(input: {
   email: string;
-  passwordHash: string;
   name: string;
   expiresAt: Date;
 }): Promise<User> {
@@ -241,7 +209,6 @@ export async function createDemoUser(input: {
     .insert(users)
     .values({
       email: input.email,
-      passwordHash: input.passwordHash,
       name: input.name,
       demoExpiresAt: input.expiresAt,
       lastSignedIn: new Date(),
@@ -264,39 +231,86 @@ export async function purgeExpiredDemoUsers(): Promise<number> {
   return deleted.length;
 }
 
-// ---------------------------------------------------------------------------
-// Password resets
-// ---------------------------------------------------------------------------
+/**
+ * Everything this account owns, for the "download my writing" step of account
+ * deletion. Reads the tables directly rather than reusing the list helpers,
+ * because those filter out soft-deleted rows and an export should include what
+ * is sitting in the bin too — it is still the user's writing.
+ */
+export async function exportAccount(userId: number) {
+  const db = getDb();
+  const [
+    account,
+    allIdeas,
+    allThoughts,
+    allDrafts,
+    categories,
+    sessions,
+    ownPrompts,
+  ] = await Promise.all([
+    findUserById(userId),
+    db.select().from(ideas).where(eq(ideas.userId, userId)),
+    db.select().from(rawThoughts).where(eq(rawThoughts.userId, userId)),
+    db.select().from(drafts).where(eq(drafts.userId, userId)),
+    db.select().from(userCategories).where(eq(userCategories.userId, userId)),
+    db.select().from(writingSessions).where(eq(writingSessions.userId, userId)),
+    db.select().from(prompts).where(eq(prompts.userId, userId)),
+  ]);
 
-export async function createPasswordReset(
-  userId: number,
-  tokenHash: string,
-  expiresAt: Date
-): Promise<void> {
-  // One live token per account: requesting a new link invalidates the old one.
-  await getDb().delete(passwordResets).where(eq(passwordResets.userId, userId));
-  await getDb().insert(passwordResets).values({ userId, tokenHash, expiresAt });
+  const draftByIdea = new Map(allDrafts.map(draft => [draft.ideaId, draft]));
+
+  return {
+    exportedAt: new Date().toISOString(),
+    account: account
+      ? {
+          email: account.email,
+          name: account.name,
+          username: account.username,
+          bio: account.bio,
+          joined: account.createdAt,
+        }
+      : null,
+    categories: categories.map(category => category.name),
+    // Each idea carries its prose inline, so the file reads as the work itself
+    // rather than as a database dump the user has to reassemble.
+    ideas: allIdeas.map(idea => ({
+      title: idea.title,
+      description: idea.description,
+      category: idea.category,
+      status: idea.status,
+      wordCount: idea.wordCount,
+      publishedUrl: idea.publishedUrl,
+      publishedIn: idea.publishedIn,
+      publishedAt: idea.publishedAt,
+      inBin: idea.deletedAt !== null,
+      createdAt: idea.createdAt,
+      content: draftByIdea.get(idea.id)?.content ?? "",
+    })),
+    thoughts: allThoughts.map(thought => ({
+      content: thought.content,
+      tags: thought.tags,
+      inBin: thought.deletedAt !== null,
+      createdAt: thought.createdAt,
+    })),
+    prompts: ownPrompts.map(prompt => prompt.text),
+    writingDays: sessions.map(session => session.startedAt),
+  };
 }
 
 /**
- * Looks up an unused, unexpired reset by token digest and burns it in the same
- * step, so a link can't be replayed even if two requests race.
+ * Deletes the account and everything hanging off it, for good.
+ *
+ * This is a real erasure, not the soft delete the bin uses — the row goes, and
+ * every table referencing it cascades. Foreign keys are ON for normal
+ * operation, so the cascade is what does the work here rather than something to
+ * guard against.
  */
-export async function consumePasswordReset(
-  tokenHash: string
-): Promise<number | null> {
-  const [consumed] = await getDb()
-    .update(passwordResets)
-    .set({ usedAt: new Date() })
-    .where(
-      and(
-        eq(passwordResets.tokenHash, tokenHash),
-        isNull(passwordResets.usedAt),
-        sql`${passwordResets.expiresAt} > unixepoch()`
-      )
-    )
-    .returning({ userId: passwordResets.userId });
-  return consumed?.userId ?? null;
+export async function deleteAccount(userId: number): Promise<boolean> {
+  const deleted = await getDb()
+    .delete(users)
+    .where(eq(users.id, userId))
+    .returning({ id: users.id });
+  return deleted.length > 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -973,15 +987,15 @@ function excerptAround(content: string, term: string, radius = 90): string {
   return `${start > 0 ? "…" : ""}${content.slice(start, end)}${end < content.length ? "…" : ""}`;
 }
 
-/** Distinct local dates on which the user wrote, newest first. */
-export async function listWritingDays(userId: number): Promise<string[]> {
+/**
+ * Raw start times of every writing session. Deliberately not grouped into days
+ * here: SQLite's `localtime` uses the *server's* timezone, which is meaningless
+ * for a user somewhere else. The caller buckets these in the viewer's zone.
+ */
+export async function listWritingSessionTimes(userId: number): Promise<Date[]> {
   const rows = await getDb()
-    .select({
-      day: sql<string>`date(${writingSessions.startedAt}, 'unixepoch', 'localtime')`,
-    })
+    .select({ startedAt: writingSessions.startedAt })
     .from(writingSessions)
-    .where(eq(writingSessions.userId, userId))
-    .groupBy(sql`1`)
-    .orderBy(sql`1 desc`);
-  return rows.map(row => row.day);
+    .where(eq(writingSessions.userId, userId));
+  return rows.map(row => row.startedAt);
 }

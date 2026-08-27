@@ -102,7 +102,11 @@ export function mountGoogleAuth(app: Express): void {
           // Same verified address, existing password account: link them rather
           // than creating a confusing duplicate.
           if (existing.demoExpiresAt) return fail(res, "sandbox_conflict");
-          user = await linkGoogleId(existing.id, identity.googleId, identity.avatarUrl);
+          user = await linkGoogleId(
+            existing.id,
+            identity.googleId,
+            identity.avatarUrl
+          );
         } else {
           user = await createGoogleUser({
             email: identity.email,
@@ -115,7 +119,11 @@ export function mountGoogleAuth(app: Express): void {
           await getPreferences(user.id);
           await Promise.all(
             STARTER_CATEGORIES.map((category, index) =>
-              createCategory({ userId: user!.id, ...category, sortOrder: index })
+              createCategory({
+                userId: user!.id,
+                ...category,
+                sortOrder: index,
+              })
             )
           );
         }
@@ -132,6 +140,8 @@ export function mountGoogleAuth(app: Express): void {
   });
 
   if (googleEnabled()) {
-    console.log(`  Google sign-in enabled → ${ENV.appUrl}/api/auth/google/callback`);
+    console.log(
+      `  Google sign-in enabled → ${ENV.appUrl}/api/auth/google/callback`
+    );
   }
 }

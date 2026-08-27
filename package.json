@@ -17,9 +17,8 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
-    "db:seed": "tsx scripts/seed.ts",
-    "db:reset": "rm -f data/app.db && npm run db:migrate && npm run db:seed",
-    "setup": "npm run db:migrate && npm run db:seed"
+    "db:reset": "rm -f data/app.db data/app.db-wal data/app.db-shm && npm run db:migrate",
+    "setup": "npm run db:migrate"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",
@@ -40,7 +39,6 @@
     "@trpc/client": "^11.6.0",
     "@trpc/react-query": "^11.6.0",
     "@trpc/server": "^11.6.0",
-    "bcryptjs": "^3.0.2",
     "better-sqlite3": "^11.10.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

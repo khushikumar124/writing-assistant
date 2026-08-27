@@ -1,4 +1,5 @@
 import { publicProcedure, router } from "./_core/trpc";
+import { accountRouter } from "./routers/account";
 import { authRouter } from "./routers/auth";
 import { categoriesRouter } from "./routers/categories";
 import { draftsRouter } from "./routers/drafts";
@@ -15,6 +16,7 @@ export const appRouter = router({
     at: new Date().toISOString(),
   })),
   auth: authRouter,
+  account: accountRouter,
   ideas: ideasRouter,
   categories: categoriesRouter,
   drafts: draftsRouter,

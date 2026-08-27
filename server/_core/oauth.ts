@@ -18,7 +18,9 @@ const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
 
 /** Cached across requests: fetching Google's keys per sign-in would be rude. */
-const googleKeys = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
+const googleKeys = createRemoteJWKSet(
+  new URL("https://www.googleapis.com/oauth2/v3/certs")
+);
 
 /** Where Google sends the browser back. Must match the console entry exactly. */
 export function googleRedirectUri(): string {
@@ -117,7 +119,8 @@ export async function exchangeGoogleCode(
     audience: ENV.googleClientId,
   });
 
-  const email = typeof payload.email === "string" ? payload.email.toLowerCase() : null;
+  const email =
+    typeof payload.email === "string" ? payload.email.toLowerCase() : null;
   if (!payload.sub || !email) {
     throw new Error("Google's token was missing a subject or email.");
   }
@@ -126,7 +129,8 @@ export async function exchangeGoogleCode(
     googleId: String(payload.sub),
     email,
     // Google sends this as a boolean or the string "true" depending on flow.
-    emailVerified: payload.email_verified === true || payload.email_verified === "true",
+    emailVerified:
+      payload.email_verified === true || payload.email_verified === "true",
     name: typeof payload.name === "string" ? payload.name : null,
     avatarUrl: typeof payload.picture === "string" ? payload.picture : null,
   };

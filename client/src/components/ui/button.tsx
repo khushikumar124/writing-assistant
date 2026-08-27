@@ -15,7 +15,8 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "sticker pressable bg-primary text-primary-foreground",
-        destructive: "sticker pressable bg-destructive text-destructive-foreground",
+        destructive:
+          "sticker pressable bg-destructive text-destructive-foreground",
         outline: "sticker pressable bg-card text-foreground hover:bg-accent/25",
         secondary: "sticker pressable bg-secondary text-secondary-foreground",
         /** The loud one, for the single most important action on a screen. */

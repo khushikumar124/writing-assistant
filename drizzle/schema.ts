@@ -35,20 +35,15 @@ const updatedAt = () =>
     .default(sql`(unixepoch())`);
 
 /**
- * Accounts. Auth is local email + password; `passwordHash` is a bcrypt digest
- * and is never exposed through the API (see `toPublicUser` in server/db.ts).
+ * Accounts. Sign-in is Google only — there is no password anywhere in this
+ * schema, which also means there is no password to leak.
  */
 export const users = sqliteTable(
   "users",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     email: text("email").notNull(),
-    /**
-     * Null for accounts that only ever sign in with Google — there is no
-     * password to store, and inventing one would be worse than not having it.
-     */
-    passwordHash: text("passwordHash"),
-    /** Google's stable subject id, set once an account links to Google. */
+    /** Google's stable subject id. The only way into an account. */
     googleId: text("googleId"),
     avatarUrl: text("avatarUrl"),
     name: text("name"),
@@ -80,8 +75,8 @@ export const users = sqliteTable(
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-/** A user without the password digest — the only shape that crosses the wire. */
-export type PublicUser = Omit<User, "passwordHash">;
+/** The shape that crosses the wire. Nothing on a user row is secret. */
+export type PublicUser = User;
 
 /**
  * Writing ideas. The centre of the data model: everything else hangs off these.
@@ -266,29 +261,6 @@ export const writingSessions = sqliteTable(
 export type WritingSession = typeof writingSessions.$inferSelect;
 export type InsertWritingSession = typeof writingSessions.$inferInsert;
 
-/**
- * Single-use password reset tokens. Only a SHA-256 digest is stored, so a leak
- * of this table doesn't hand anyone a working reset link.
- */
-export const passwordResets = sqliteTable(
-  "passwordResets",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    userId: integer("userId")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    tokenHash: text("tokenHash").notNull(),
-    expiresAt: timestamp("expiresAt").notNull(),
-    usedAt: timestamp("usedAt"),
-    createdAt: createdAt(),
-  },
-  table => [
-    uniqueIndex("passwordResets_tokenHash_unique").on(table.tokenHash),
-    index("passwordResets_userId_idx").on(table.userId),
-  ]
-);
-
-export type PasswordReset = typeof passwordResets.$inferSelect;
 
 /**
  * The prompt library behind Discover. A null `userId` marks a curated prompt

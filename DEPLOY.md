@@ -20,9 +20,10 @@ These need accounts in your name. Nobody else can create them for you.
 ### Required
 
 - **A host account** — [fly.io](https://fly.io) is assumed below. `fly.toml`
-  deploys to **Mumbai (`bom`)**; the volume must be created in the same region
-  or the machine will not start. Check the code is current with
-  `fly platform regions`.
+  deploys to **US East (`iad`)**, the usual compromise for a worldwide
+  audience. The volume must be created in the *same* region or the machine will
+  not start. If most of your users end up in one place, see "Picking a region"
+  below.
 - **A session secret** — generate it locally:
   ```bash
   openssl rand -base64 32
@@ -48,16 +49,14 @@ These need accounts in your name. Nobody else can create them for you.
    `redirect_uri_mismatch`.
 6. Copy the client ID and client secret.
 
-While the consent screen is in *Testing*, only accounts you list as test users
-can sign in. Publishing it is a button in the console; for the scopes above,
-Google does not require a verification review.
+**Publish the consent screen before you share the link.** While it is in
+*Testing*, only Google accounts you have explicitly added as test users can sign
+in — everyone else gets an error, which for a Google-only app means nobody can
+use the site. Publishing is a button in the console; with only the three scopes
+above, Google does not require a verification review.
 
-### For password reset emails
-
-Sign up at [resend.com](https://resend.com), verify a sending domain, and take
-an API key. **Without this, password resets silently go to the server log and
-users who forget their password cannot get back in.** Google sign-in users are
-unaffected.
+There is no email provider to set up: the app sends no mail. Google is the
+only way to sign in, so there are no passwords to reset.
 
 ---
 
@@ -80,7 +79,7 @@ Create the volume the database lives on (size it generously; text is small but
 growing a volume later is more annoying than paying for 3GB now):
 
 ```bash
-fly volumes create writing_data --size 3 --region bom
+fly volumes create writing_data --size 3 --region iad
 ```
 
 Set the secrets:
@@ -90,9 +89,7 @@ fly secrets set \
   SESSION_SECRET="paste-the-openssl-output" \
   APP_URL="https://your-app.fly.dev" \
   GOOGLE_CLIENT_ID="...apps.googleusercontent.com" \
-  GOOGLE_CLIENT_SECRET="..." \
-  RESEND_API_KEY="re_..." \
-  MAIL_FROM="Writing Assistant <hello@yourdomain.com>"
+  GOOGLE_CLIENT_SECRET="..."
 ```
 
 Then:
@@ -115,6 +112,21 @@ Follow the DNS records it prints. Then **update two things or sign-in breaks**:
 2. Add `https://yourdomain.com/api/auth/google/callback` to the authorised
    redirect URIs in the Google console.
 
+### Picking a region
+
+The app runs as one machine, so every request from everywhere travels to that
+one place. Rough round trips from `iad` (US East): ~20ms east coast US, ~90ms
+west coast, ~90ms western Europe, ~230ms India, ~250ms Australia.
+
+Alternatives: `fra` Frankfurt, `lhr` London, `sin` Singapore, `bom` Mumbai,
+`syd` Sydney. Moving later means creating a volume in the new region and
+copying `app.db` across — doable, but not a one-liner, so it is worth a moment
+of thought now.
+
+Genuinely global low latency needs read replicas (Fly's LiteFS) or a hosted
+database, and neither is worth it before you have users in several continents
+complaining.
+
 ---
 
 ## 3. Environment variables
@@ -124,15 +136,34 @@ Follow the DNS records it prints. Then **update two things or sign-in breaks**:
 | `SESSION_SECRET` | **Yes** | Server refuses to start |
 | `APP_URL` | **Yes** in prod | OAuth callback and email links point at localhost |
 | `DATABASE_URL` | Set in `fly.toml` | Defaults to `./data/app.db`, which is *not* on the volume |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | No | Google button is hidden; email/password still works |
-| `RESEND_API_KEY` | No | Reset emails are logged to the console, not sent |
-| `MAIL_FROM` | No | Falls back to Resend's shared test sender |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | **Yes** in practice | No way to sign in; only the sandbox button works |
 | `DEMO_MODE` | No | Set `false` to remove the sandbox button |
 | `PORT` | No | Defaults to 3000 |
 
 ---
 
-## 4. Backups
+## 4. Testing the image locally
+
+Run it against a real Docker volume, never a bind mount from macOS or Windows:
+
+```bash
+docker volume create wa-data
+docker run --rm -p 3000:3000 -v wa-data:/data \
+  -e SESSION_SECRET="$(openssl rand -base64 32)" \
+  -e APP_URL="http://localhost:3000" \
+  writing-assistant:test
+```
+
+Mounting a host folder (`-v ./data:/data`) looks like it works — the app starts,
+writes land — but SQLite in WAL mode needs POSIX file locking that Docker
+Desktop's macOS/Windows file sharing does not reproduce faithfully. Writes are
+reported as successful and then quietly fail to materialise. It cost an hour of
+chasing a deletion "bug" that did not exist. Fly volumes are real block devices,
+so this affects local testing only.
+
+---
+
+## 5. Backups
 
 Fly volumes get daily snapshots, but a snapshot is not a backup you have tested.
 For a text database this is small enough to just pull down:
@@ -151,16 +182,18 @@ fly ssh sftp get /data/backup.db
 
 ---
 
-## 5. Before you invite real users
+## 6. Before you invite real users
 
 - [ ] `SESSION_SECRET` set, and different from anything in `.env`
 - [ ] `APP_URL` matches the real domain
 - [ ] Google redirect URI matches `APP_URL` exactly
-- [ ] `RESEND_API_KEY` set, and a password reset tested end to end
+- [ ] Google consent screen **published**, not left in Testing
+- [ ] Signed in with a Google account that is *not* yours, to prove it
 - [ ] Volume mounted — confirm with `fly ssh console -C "ls -la /data"`
 - [ ] A backup taken and *restored somewhere* to prove it works
 - [ ] Decide on `DEMO_MODE`: sandboxes are unauthenticated writes to your disk
 - [ ] Privacy note somewhere, since you now hold other people's unpublished work
+- [ ] Account deletion tried once on a throwaway account
 
 ---
 

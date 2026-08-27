@@ -1,5 +1,4 @@
 import { COOKIE_NAME, SESSION_TTL_MS } from "@shared/const";
-import bcrypt from "bcryptjs";
 import { parse as parseCookieHeader } from "cookie";
 import type { Request, Response } from "express";
 import { SignJWT, jwtVerify } from "jose";
@@ -8,20 +7,7 @@ import type { PublicUser } from "../../drizzle/schema";
 import { ENV } from "./env";
 import { getSessionCookieOptions } from "./cookies";
 
-const BCRYPT_ROUNDS = 10;
-
 const secretKey = new TextEncoder().encode(ENV.sessionSecret);
-
-export function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, BCRYPT_ROUNDS);
-}
-
-export function verifyPassword(
-  password: string,
-  hash: string
-): Promise<boolean> {
-  return bcrypt.compare(password, hash);
-}
 
 /** Signs a short JWT identifying the user. The cookie is the only transport. */
 export async function createSessionToken(userId: number): Promise<string> {

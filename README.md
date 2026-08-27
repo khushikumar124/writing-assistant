@@ -26,13 +26,13 @@ drafts to make recommendations.
 npm install && npm run setup && npm run dev
 ```
 
-`npm run setup` applies migrations and seeds a development account
-(`dev@writingassistant.local` / `devpassword`). The app is then at
-http://localhost:3000.
+`npm run setup` applies migrations. The app is then at http://localhost:3000 —
+click **Try it without an account** for a sandbox pre-filled with sample
+writing. No Google credentials needed to develop.
 
-Copy `.env.example` to `.env` first if you want sessions to survive a server
-restart — without `SESSION_SECRET`, development generates a fresh one on every
-boot and signs you out.
+Copy `.env.example` to `.env` if you want sessions to survive a server restart:
+without `SESSION_SECRET`, development generates a fresh one each boot and signs
+you out.
 
 ## Commands
 
@@ -45,7 +45,7 @@ boot and signs you out.
 | `npm run check` | TypeScript, no emit |
 | `npm run db:generate` | Generates a migration from schema changes |
 | `npm run db:migrate` | Applies migrations |
-| `npm run db:reset` | Drops the database, re-migrates, re-seeds |
+| `npm run db:reset` | Drops the database and re-migrates |
 
 ## Architecture
 
@@ -69,6 +69,13 @@ boot and signs you out.
   publish public shelves.
 - **Curated prompts live in `shared/prompts.ts`,** under version control. Only
   a writer's own additions hit the `prompts` table.
+- **Streaks are counted in the reader's timezone.** The browser sends its IANA
+  zone; the server buckets session timestamps with it. SQLite's `localtime`
+  would use the *server's* zone, which credits a late-night session in Delhi to
+  the wrong day.
+- **Account deletion is a real erasure**, not a soft delete — the row goes and
+  every table cascades. The export in Settings exists so that is not a
+  destructive-only choice.
 - **Public shelves are opt-in and publish only shipped work** — titles, blurbs,
   links and dates. Draft prose, thoughts, and streaks are never exposed.
 - **`/@handle` needs the dev-server rewrite** in `server/_core/vite.ts`; Vite
@@ -77,11 +84,16 @@ boot and signs you out.
 
 ## Signing in
 
-Email + password, plus **Continue with Google** when `GOOGLE_CLIENT_ID` and
-`GOOGLE_CLIENT_SECRET` are set (the button hides itself when they aren't).
-Google accounts have no password until they ask for one through the reset link,
-so `users.passwordHash` is nullable. A Google sign-in whose verified address
-matches an existing account links to it rather than creating a duplicate.
+**Google only.** There is no password anywhere in the app — no signup form, no
+reset flow, no hashes at rest, and nothing to leak. Sign-in lives at
+`/api/auth/google` as plain Express routes, because OAuth is a browser redirect
+that a JSON transport can't express.
+
+Unverified Google addresses are refused: without that check, anyone could claim
+an account by putting your address on a Google profile.
+
+Locally, "Try it without an account" mints a seeded sandbox, so you can run the
+app without configuring Google at all. That is the intended dev login.
 
 ## Deploying
 

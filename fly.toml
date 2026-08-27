@@ -2,11 +2,17 @@
 # decline, because the volume mount and the single-machine constraint below are
 # both load-bearing for a SQLite app.
 app = "writing-assistant"
-# Mumbai. With one machine there is no edge to fall back on, so the region IS
-# the latency for every user — and an autosaving editor feels the difference.
-# Virginia would add roughly 200ms round trip for Indian users.
-# Confirm the code is still current with: fly platform regions
-primary_region = "bom"
+# One machine means one region, and that region IS the latency for every user
+# on earth — there is no edge to fall back on. `iad` (US East) is the usual
+# compromise for a general audience: acceptable from the Americas and Europe,
+# slower from Asia and Oceania.
+#
+# If your users concentrate somewhere, move this and the volume to match:
+#   bom Mumbai · sin Singapore · fra Frankfurt · lhr London · syd Sydney
+# The volume must live in the same region, so changing this later means
+# creating a new volume and migrating the database file into it.
+# Confirm codes with: fly platform regions
+primary_region = "iad"
 
 [build]
   dockerfile = "Dockerfile"

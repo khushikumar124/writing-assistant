@@ -31,12 +31,12 @@ export type RateLimitRule = {
 };
 
 export const AUTH_LIMITS = {
-  /** Sign-in: generous enough for a fat-fingered password, tight enough to stop guessing. */
-  login: { limit: 10, windowMs: 15 * 60 * 1000 },
-  /** Account creation, to slow down bulk signup. */
-  signup: { limit: 5, windowMs: 60 * 60 * 1000 },
-  /** Reset emails, so the endpoint can't be used to spam someone's inbox. */
-  passwordReset: { limit: 4, windowMs: 60 * 60 * 1000 },
+  /**
+   * Starting the Google handshake. There is no password to guess, so this is
+   * about stopping someone hammering the redirect endpoint rather than
+   * protecting a credential.
+   */
+  login: { limit: 20, windowMs: 15 * 60 * 1000 },
   /** Demo sandboxes, which cost a database write and a seed each. */
   demo: { limit: 6, windowMs: 60 * 60 * 1000 },
 } as const satisfies Record<string, RateLimitRule>;

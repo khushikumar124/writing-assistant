@@ -3,6 +3,35 @@
  * Days are `YYYY-MM-DD` strings in the user's local timezone.
  */
 
+/**
+ * The calendar day a moment falls on, *in a given timezone*.
+ *
+ * Streaks are a human idea — "did I write today?" — so they have to be measured
+ * where the human is. Computing them on the server instead means a writer in
+ * Delhi finishing at 1am has it credited to the previous day, because the
+ * server is in UTC. `en-CA` is used purely because it formats as YYYY-MM-DD.
+ *
+ * An unknown or malformed zone falls back to UTC rather than throwing: a wrong
+ * streak is a bad day, a crash is a broken app.
+ */
+export function toDayKeyInZone(date: Date, timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "UTC",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(date);
+  }
+}
+
 export function toDayKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");

@@ -16,7 +16,11 @@ import {
 import { Link } from "wouter";
 
 export default function Dashboard() {
-  const { data, isPending } = trpc.stats.dashboard.useQuery();
+  // Streaks are counted in the reader's own timezone, so the browser has to
+  // say which one that is — the server's is an accident of where it is hosted.
+  const { data, isPending } = trpc.stats.dashboard.useQuery({
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  });
 
   return (
     <AppShell>
@@ -45,9 +49,7 @@ export default function Dashboard() {
                   className="size-4 text-accent animate-flicker"
                   aria-hidden
                 />
-                <span className="typewriter">
-                  {data.streak}-day streak
-                </span>
+                <span className="typewriter">{data.streak}-day streak</span>
               </div>
             )}
           </section>
@@ -66,7 +68,11 @@ export default function Dashboard() {
               className="sm:col-span-2 lg:row-span-2"
               big
             />
-            <Stat label="Thoughts caught" value={data.totals.thoughts} tint="olive" />
+            <Stat
+              label="Thoughts caught"
+              value={data.totals.thoughts}
+              tint="olive"
+            />
             <Stat label="Ideas" value={data.totals.ideas} tint="rose" />
             <Stat
               label="Shipped"
@@ -108,10 +114,7 @@ export default function Dashboard() {
                           </p>
                         </div>
                         <span
-                          className={cn(
-                            "shrink-0",
-                            statusClasses(idea.status)
-                          )}
+                          className={cn("shrink-0", statusClasses(idea.status))}
                         >
                           {statusLabel(idea.status)}
                         </span>
@@ -279,7 +282,10 @@ function QuickAction({
             ACTION_TINTS[tint]
           )}
         >
-          <Icon className="size-4 transition-transform group-hover:scale-110" aria-hidden />
+          <Icon
+            className="size-4 transition-transform group-hover:scale-110"
+            aria-hidden
+          />
         </span>
         <div>
           <p className="font-semibold">{title}</p>

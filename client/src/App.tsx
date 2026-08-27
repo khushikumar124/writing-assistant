@@ -8,7 +8,6 @@ import Ideas from "@/pages/Ideas";
 import Landing from "@/pages/Landing";
 import NotFound from "@/pages/NotFound";
 import PublicShelf from "@/pages/PublicShelf";
-import ResetPassword from "@/pages/ResetPassword";
 import Search from "@/pages/Search";
 import Settings from "@/pages/Settings";
 import Shipped from "@/pages/Shipped";
@@ -50,7 +49,6 @@ function Router() {
 
       {/* Public: no session needed. */}
       <Route path="/signin" component={SignIn} />
-      <Route path="/reset-password" component={ResetPassword} />
       {/* A regex, not "/@:username": wouter's path parser treats the leading
           "@" as part of the literal segment and never matches the param. */}
       <Route

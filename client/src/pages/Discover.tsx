@@ -106,7 +106,9 @@ export default function Discover() {
               /* A ticket stub — the one prompt you're handed today, torn off
                  the roll. */
               <Card className="ticket border-ochre/45 bg-ochre/10 p-6">
-                <p className="typewriter text-ochre">Today's ticket · one only</p>
+                <p className="typewriter text-ochre">
+                  Today's ticket · one only
+                </p>
                 <p className="mt-3 font-serif text-2xl leading-snug">
                   {data.today.text}
                 </p>
@@ -230,7 +232,8 @@ export default function Discover() {
                                 ? "border-rose/40 bg-rose/10 text-rose"
                                 : KIND_TINTS[
                                     prompt.kind as keyof typeof KIND_TINTS
-                                  ] || "border-line bg-muted text-muted-foreground"
+                                  ] ||
+                                    "border-line bg-muted text-muted-foreground"
                             )}
                           >
                             {prompt.own
