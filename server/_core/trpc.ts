@@ -1,5 +1,6 @@
 import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from "@shared/const";
 import { initTRPC, TRPCError } from "@trpc/server";
+import { consume, WRITE_LIMIT } from "./rateLimit";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
 
@@ -25,7 +26,19 @@ const requireUser = t.middleware(async opts => {
   });
 });
 
-export const protectedProcedure = t.procedure.use(requireUser);
+/**
+ * Every mutation is rate limited per account. Reads are left alone: they are
+ * cheap, cached by the client, and throttling them would break the app under
+ * normal use long before it stopped anyone malicious.
+ */
+const limitWrites = t.middleware(async opts => {
+  if (opts.type === "mutation" && opts.ctx.user) {
+    consume(`write:${opts.ctx.user.id}`, WRITE_LIMIT);
+  }
+  return opts.next();
+});
+
+export const protectedProcedure = t.procedure.use(requireUser).use(limitWrites);
 
 export const adminProcedure = t.procedure.use(
   t.middleware(async opts => {

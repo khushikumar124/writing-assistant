@@ -15,6 +15,7 @@ export default defineConfig({
     environment: "node",
     include: [
       "server/**/*.test.ts",
+      "server/__tests__/**/*.test.ts",
       "shared/**/*.test.ts",
       "client/src/**/*.test.ts",
     ],

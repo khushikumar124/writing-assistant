@@ -79,6 +79,16 @@ export function consume(key: string, rule: RateLimitRule): void {
   }
 }
 
+/**
+ * Writes, per account.
+ *
+ * Generous enough that no human hits it — the editor autosaves every 1.2s while
+ * typing, which is well inside this — but low enough that a runaway client or a
+ * script cannot fill the disk. Keyed by user rather than IP so one person on a
+ * shared network cannot lock out another.
+ */
+export const WRITE_LIMIT: RateLimitRule = { limit: 600, windowMs: 60_000 };
+
 /** Clears all windows. Test-only. */
 export function resetAllLimits(): void {
   windows.clear();

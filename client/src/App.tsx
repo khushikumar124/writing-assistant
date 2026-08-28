@@ -1,24 +1,43 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
-import Dashboard from "@/pages/Dashboard";
-import Discover from "@/pages/Discover";
-import Editor from "@/pages/Editor";
-import Ideas from "@/pages/Ideas";
 import Landing from "@/pages/Landing";
-import { Privacy, Terms } from "@/pages/Legal";
 import NotFound from "@/pages/NotFound";
-import PublicShelf from "@/pages/PublicShelf";
-import Search from "@/pages/Search";
-import Settings from "@/pages/Settings";
-import Shipped from "@/pages/Shipped";
 import SignIn from "@/pages/SignIn";
-import Thoughts from "@/pages/Thoughts";
-import Trash from "@/pages/Trash";
-import type { ComponentType } from "react";
+import { lazy, Suspense, type ComponentType } from "react";
 import { Redirect, Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+
+/**
+ * Everything behind sign-in is split out of the initial bundle.
+ *
+ * The landing page and sign-in stay eager because they are the first paint for
+ * someone who has never been here, and a spinner in that moment costs more
+ * than the bytes save. The editor in particular pulls in the markdown renderer
+ * and sanitiser, which nobody should download to read a privacy policy.
+ */
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Discover = lazy(() => import("@/pages/Discover"));
+const Editor = lazy(() => import("@/pages/Editor"));
+const Ideas = lazy(() => import("@/pages/Ideas"));
+const Privacy = lazy(() =>
+  import("@/pages/Legal").then(module => ({ default: module.Privacy }))
+);
+const Terms = lazy(() =>
+  import("@/pages/Legal").then(module => ({ default: module.Terms }))
+);
+const PublicShelf = lazy(() => import("@/pages/PublicShelf"));
+const Search = lazy(() => import("@/pages/Search"));
+const Settings = lazy(() => import("@/pages/Settings"));
+const Shipped = lazy(() => import("@/pages/Shipped"));
+const Thoughts = lazy(() => import("@/pages/Thoughts"));
+const Trash = lazy(() => import("@/pages/Trash"));
+
+/** Deliberately blank: a flash of spinner on a fast chunk is worse than none. */
+function RouteFallback() {
+  return <div className="min-h-screen" />;
+}
 
 /** Gates a route on an active session, bouncing anonymous visitors to sign-in. */
 function Protected({ component: Component }: { component: ComponentType }) {
@@ -97,7 +116,9 @@ function App() {
       <ThemeProvider>
         <TooltipProvider>
           <Toaster position="bottom-right" />
-          <Router />
+          <Suspense fallback={<RouteFallback />}>
+            <Router />
+          </Suspense>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>
