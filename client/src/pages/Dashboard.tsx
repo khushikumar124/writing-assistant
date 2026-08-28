@@ -11,6 +11,7 @@ import {
   Compass,
   ExternalLink,
   Flame,
+  PenLine,
   Send,
 } from "lucide-react";
 import { Link } from "wouter";
@@ -39,6 +40,35 @@ export default function Dashboard() {
                     : `${data.daysSinceLastWrote} day${data.daysSinceLastWrote === 1 ? "" : "s"} since you last wrote.`}
               </h1>
               <p className="mt-2 text-muted-foreground">{data.message}</p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {data.resume && (
+                <Button asChild size="lg">
+                  <Link href={`/ideas/${data.resume.id}`}>
+                    <PenLine className="mr-2 size-4" aria-hidden />
+                    Continue writing
+                  </Link>
+                </Button>
+              )}
+
+              {data.goal > 0 && (
+                <span className="sticker plate flex items-center gap-2 bg-card px-3 py-1.5">
+                  <span className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+                    <span
+                      className="block h-full rounded-full bg-primary transition-all duration-500"
+                      style={{
+                        width: `${Math.min(100, (data.wordsToday / data.goal) * 100)}%`,
+                      }}
+                    />
+                  </span>
+                  <span className="typewriter text-muted-foreground">
+                    {data.wordsToday >= data.goal
+                      ? "goal met today"
+                      : `${data.wordsToday} / ${data.goal} today`}
+                  </span>
+                </span>
+              )}
             </div>
 
             {data.streak > 0 && (

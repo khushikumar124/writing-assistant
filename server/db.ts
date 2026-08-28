@@ -538,6 +538,7 @@ export async function updatePreferences(
   updates: {
     defaultPlatform?: "substack" | "medium" | "both";
     onboardingCompleted?: boolean;
+    dailyWordGoal?: number;
   }
 ) {
   await getPreferences(userId); // ensure the row exists
@@ -1004,10 +1005,14 @@ function excerptAround(content: string, term: string, radius = 90): string {
  * here: SQLite's `localtime` uses the *server's* timezone, which is meaningless
  * for a user somewhere else. The caller buckets these in the viewer's zone.
  */
-export async function listWritingSessionTimes(userId: number): Promise<Date[]> {
-  const rows = await getDb()
-    .select({ startedAt: writingSessions.startedAt })
+export async function listWritingSessionTimes(
+  userId: number
+): Promise<{ startedAt: Date; wordsWritten: number }[]> {
+  return getDb()
+    .select({
+      startedAt: writingSessions.startedAt,
+      wordsWritten: writingSessions.wordsWritten,
+    })
     .from(writingSessions)
     .where(eq(writingSessions.userId, userId));
-  return rows.map(row => row.startedAt);
 }

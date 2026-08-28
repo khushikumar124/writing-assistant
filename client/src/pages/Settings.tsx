@@ -32,6 +32,7 @@ export default function Settings() {
         </div>
 
         <ProfileSection />
+        <GoalSection />
         <AppearanceSection />
         <DataSection />
         <DangerSection />
@@ -152,6 +153,88 @@ function ProfileSection() {
       >
         {update.isPending ? "Saving…" : "Save profile"}
       </Button>
+    </Card>
+  );
+}
+
+/**
+ * A daily words target.
+ *
+ * Framed as encouragement rather than obligation: it is off unless asked for,
+ * the presets are small, and nothing anywhere scolds you for missing it. A goal
+ * that produces guilt makes people close the tab, which is the opposite of what
+ * it is for.
+ */
+function GoalSection() {
+  const utils = trpc.useUtils();
+  const { data: preferences } = trpc.categories.getPreferences.useQuery();
+  const [draft, setDraft] = useState<string>("");
+
+  useEffect(() => {
+    if (preferences) setDraft(String(preferences.dailyWordGoal || ""));
+  }, [preferences]);
+
+  const update = trpc.categories.updatePreferences.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.categories.getPreferences.invalidate(),
+        utils.stats.dashboard.invalidate(),
+      ]);
+      toast.success("Saved.");
+    },
+    onError: error => toast.error(error.message),
+  });
+
+  const save = (value: number) =>
+    update.mutate({ dailyWordGoal: Math.max(0, Math.min(20_000, value)) });
+
+  const current = preferences?.dailyWordGoal ?? 0;
+
+  return (
+    <Card className="space-y-4 p-6">
+      <div>
+        <h2 className="text-xl">A daily goal</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Optional, and quiet. If you set one, the editor shows a small bar as
+          you go. Nothing here will ever tell you off for missing it.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {[0, 100, 250, 500, 1000].map(preset => (
+          <Button
+            key={preset}
+            size="sm"
+            variant={current === preset ? "default" : "outline"}
+            onClick={() => save(preset)}
+          >
+            {preset === 0 ? "No goal" : `${preset} words`}
+          </Button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-2">
+          <Label htmlFor="goal-custom">Or your own number</Label>
+          <Input
+            id="goal-custom"
+            inputMode="numeric"
+            className="w-40"
+            value={draft}
+            onChange={event =>
+              setDraft(event.target.value.replace(/[^0-9]/g, ""))
+            }
+            placeholder="e.g. 300"
+          />
+        </div>
+        <Button
+          variant="outline"
+          disabled={update.isPending}
+          onClick={() => save(Number(draft || 0))}
+        >
+          Set goal
+        </Button>
+      </div>
     </Card>
   );
 }

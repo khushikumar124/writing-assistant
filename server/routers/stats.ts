@@ -11,6 +11,7 @@ import {
   listIdeas,
   listPublishedIdeas,
   listThoughts,
+  getPreferences,
   listUnlinkedThoughts,
   listWritingSessionTimes,
 } from "../db";
@@ -26,20 +27,36 @@ export const statsRouter = router({
     .input(z.object({ timeZone: z.string().max(64).optional() }).optional())
     .query(async ({ ctx, input }) => {
       const timeZone = input?.timeZone || "UTC";
-      const [ideas, drafts, thoughts, unlinked, published, sessionTimes] =
-        await Promise.all([
-          listIdeas(ctx.user.id),
-          listDrafts(ctx.user.id),
-          listThoughts(ctx.user.id),
-          listUnlinkedThoughts(ctx.user.id),
-          listPublishedIdeas(ctx.user.id),
-          listWritingSessionTimes(ctx.user.id),
-        ]);
+      const [
+        ideas,
+        drafts,
+        thoughts,
+        unlinked,
+        published,
+        sessionTimes,
+        preferences,
+      ] = await Promise.all([
+        listIdeas(ctx.user.id),
+        listDrafts(ctx.user.id),
+        listThoughts(ctx.user.id),
+        listUnlinkedThoughts(ctx.user.id),
+        listPublishedIdeas(ctx.user.id),
+        listWritingSessionTimes(ctx.user.id),
+        getPreferences(ctx.user.id),
+      ]);
 
       const today = toDayKeyInZone(new Date(), timeZone);
       const days = [
-        ...new Set(sessionTimes.map(at => toDayKeyInZone(at, timeZone))),
+        ...new Set(
+          sessionTimes.map(s => toDayKeyInZone(s.startedAt, timeZone))
+        ),
       ];
+
+      // Words added today, in the reader's zone — the number a daily goal is
+      // measured against.
+      const wordsToday = sessionTimes
+        .filter(s => toDayKeyInZone(s.startedAt, timeZone) === today)
+        .reduce((sum, s) => sum + s.wordsWritten, 0);
       const streak = calculateStreak(days, today);
       const daysSince = daysSinceLastWrote(days, today);
 
@@ -69,6 +86,14 @@ export const statsRouter = router({
         streak,
         daysSinceLastWrote: daysSince,
         message: habitMessage(daysSince, streak),
+        wordsToday,
+        /** The daily target, 0 when the user hasn't set one. */
+        goal: preferences.dailyWordGoal,
+        /**
+         * The single draft to drop straight back into. Skips anything already
+         * shipped, because "continue writing" should not reopen finished work.
+         */
+        resume: ideas.find(idea => idea.status !== "published") ?? null,
         /** Most recently touched ideas, for the "pick up where you left off" list. */
         recentIdeas: ideas.slice(0, 5),
         /** The last few things shipped, for the dashboard's shelf preview. */

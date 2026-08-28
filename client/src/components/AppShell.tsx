@@ -7,12 +7,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { SHORTCUTS, useShortcuts } from "@/hooks/useShortcuts";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import {
   Compass,
   Feather,
+  Keyboard,
   LayoutDashboard,
   Lightbulb,
   LogOut,
@@ -37,6 +45,7 @@ const NAV = [
 export default function AppShell({ children }: { children: ReactNode }) {
   const { user, logout, isLoggingOut } = useAuth();
   const [location] = useLocation();
+  const { helpOpen, setHelpOpen } = useShortcuts();
   const { data: profile } = trpc.profile.mine.useQuery();
 
   const isActive = (href: string) =>
@@ -120,6 +129,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
                     Settings
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setHelpOpen(true)}>
+                  <Keyboard className="mr-2 size-4" aria-hidden />
+                  Keyboard shortcuts
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/trash">
                     <Trash2 className="mr-2 size-4" aria-hidden />
@@ -141,6 +154,29 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       <main className="container py-8">{children}</main>
+
+      {/* Press ? anywhere. Discoverable from the account menu too, since a
+          shortcut nobody knows about helps nobody. */}
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Keyboard shortcuts</DialogTitle>
+          </DialogHeader>
+          <ul className="divide-y divide-border">
+            {SHORTCUTS.map(shortcut => (
+              <li
+                key={shortcut.keys}
+                className="flex items-center justify-between gap-4 py-2"
+              >
+                <span className="text-sm">{shortcut.does}</span>
+                <kbd className="typewriter plate border border-line bg-muted px-2 py-1">
+                  {shortcut.keys}
+                </kbd>
+              </li>
+            ))}
+          </ul>
+        </DialogContent>
+      </Dialog>
 
       {/* Mobile nav: thumb-reachable, because capture happens on a phone. */}
       <nav

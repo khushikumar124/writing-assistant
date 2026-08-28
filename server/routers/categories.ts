@@ -89,6 +89,8 @@ export const categoriesRouter = router({
       z.object({
         defaultPlatform: z.enum(PLATFORMS).optional(),
         onboardingCompleted: z.boolean().optional(),
+        /** 0 turns the goal off. Capped so a typo can't set an absurd target. */
+        dailyWordGoal: z.number().int().min(0).max(20_000).optional(),
       })
     )
     .mutation(({ ctx, input }) => updatePreferences(ctx.user.id, input)),
