@@ -2,8 +2,9 @@ import AppShell from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { downloadShareCard } from "@/lib/shareCard";
 import { trpc } from "@/lib/trpc";
-import { ExternalLink, Globe, Share2 } from "lucide-react";
+import { ExternalLink, Globe, ImageDown, Rss, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "wouter";
 
@@ -48,7 +49,7 @@ export default function Shipped() {
           </div>
 
           {profile?.publicProfile && shareUrl ? (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={copyShareUrl}>
                 <Share2 className="mr-2 size-4" aria-hidden />
                 Copy public link
@@ -61,6 +62,16 @@ export default function Shipped() {
                 >
                   <Globe className="mr-2 size-4" aria-hidden />
                   View
+                </a>
+              </Button>
+              <Button asChild variant="ghost">
+                <a
+                  href={`/@${profile.username}/feed.xml`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  <Rss className="mr-2 size-4" aria-hidden />
+                  RSS
                 </a>
               </Button>
             </div>
@@ -93,6 +104,25 @@ export default function Shipped() {
                 value={totalWords.toLocaleString()}
               />
             </div>
+
+            <Button
+              variant="outline"
+              onClick={() =>
+                downloadShareCard({
+                  name: profile?.name ?? "A writer",
+                  handle: profile?.username ?? null,
+                  pieces: thisYearPieces.length,
+                  words: thisYearPieces.reduce(
+                    (sum, idea) => sum + idea.wordCount,
+                    0
+                  ),
+                  year: thisYear,
+                })
+              }
+            >
+              <ImageDown className="mr-2 size-4" aria-hidden />
+              Save a card for {thisYear}
+            </Button>
 
             <ul className="space-y-3">
               {pieces.map(idea => (

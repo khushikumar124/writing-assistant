@@ -10,6 +10,7 @@ import {
   report,
 } from "./observability";
 import { mountGoogleAuth } from "../googleAuth";
+import { mountPublicShelf } from "../publicShelf";
 import { migrateToLatest } from "../migrate";
 import { scheduleReminders } from "../reminders";
 import { appRouter } from "../routers";
@@ -67,6 +68,10 @@ async function startServer() {
 
   // Redirect-based sign-in, so it lives outside tRPC.
   mountGoogleAuth(app);
+
+  // Crawler-facing metadata and RSS for public shelves. Must come before the
+  // SPA fallback, which would otherwise answer these URLs with the shell.
+  mountPublicShelf(app);
 
   app.use(
     "/api/trpc",

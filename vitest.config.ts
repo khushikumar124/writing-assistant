@@ -18,6 +18,7 @@ export default defineConfig({
       "server/__tests__/**/*.test.ts",
       "shared/**/*.test.ts",
       "client/src/**/*.test.ts",
+      "client/src/**/*.test.tsx",
     ],
   },
 });

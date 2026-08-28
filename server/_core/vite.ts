@@ -3,6 +3,7 @@ import fs from "node:fs";
 import type { Server } from "node:http";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { injectShelfMeta, type ShelfMeta } from "../publicShelf";
 
 /**
  * Dev: Vite in middleware mode, so the API and the client share one origin.
@@ -63,7 +64,11 @@ export async function setupVite(app: Express, server: Server) {
       // Re-read from disk each time so edits to index.html show up without a
       // server restart.
       const template = await fs.promises.readFile(templatePath, "utf-8");
-      const page = await vite.transformIndexHtml(req.originalUrl, template);
+      let page = await vite.transformIndexHtml(req.originalUrl, template);
+
+      const meta = res.locals.shelfMeta as ShelfMeta | undefined;
+      if (meta) page = injectShelfMeta(page, meta);
+
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (error) {
       vite.ssrFixStacktrace(error as Error);
@@ -83,7 +88,15 @@ export function serveStatic(app: Express) {
   }
 
   app.use(express.static(distPath));
+
+  // Read once: the built shell never changes while the process is alive.
+  const shell = fs.readFileSync(path.resolve(distPath, "index.html"), "utf-8");
+
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    const meta = res.locals.shelfMeta as ShelfMeta | undefined;
+    res
+      .status(200)
+      .type("html")
+      .send(meta ? injectShelfMeta(shell, meta) : shell);
   });
 }
