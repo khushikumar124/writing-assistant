@@ -31,6 +31,7 @@ import {
   type PublicUser,
   type User,
 } from "../drizzle/schema";
+import { scoreMatch } from "@shared/search";
 import { ENV, TRASH_RETENTION_MS } from "./_core/env";
 
 export const schema = {
@@ -979,18 +980,32 @@ export type SearchHit = {
   title: string;
   excerpt: string;
   updatedAt: Date;
+  /** Extra context for filtering and display. */
+  status: string | null;
+  category: string | null;
+  score: number;
+};
+
+export type SearchFilters = {
+  kinds?: ("idea" | "thought" | "draft")[];
+  status?: string;
+  category?: string;
+  /** Only items touched since this date. */
+  since?: Date;
 };
 
 /**
- * Substring search across ideas, thoughts, and draft prose.
+ * Search across ideas, thoughts and draft prose.
  *
- * `like` on a few hundred rows is instant and needs no index maintenance;
- * if a user ever has enough writing for this to drag, SQLite's FTS5 is the
- * upgrade path and this function is the only thing that changes.
+ * SQL narrows with `LIKE`, then `scoreMatch` ranks — the database is good at
+ * "does this contain the string", and bad at "which of these did they mean".
+ * If a user ever has enough writing for the LIKE scan to drag, FTS5 is the
+ * upgrade and only the narrowing step changes.
  */
 export async function search(
   userId: number,
-  term: string
+  term: string,
+  filters: SearchFilters = {}
 ): Promise<SearchHit[]> {
   const trimmed = term.trim();
   if (trimmed.length === 0) return [];
@@ -1000,78 +1015,133 @@ export async function search(
   const matches = (column: unknown) =>
     sql`${column} LIKE ${pattern} ESCAPE '\\'`;
 
+  const wants = (kind: "idea" | "thought" | "draft") =>
+    !filters.kinds ||
+    filters.kinds.length === 0 ||
+    filters.kinds.includes(kind);
+
   const [ideaRows, thoughtRows, draftRows] = await Promise.all([
-    getDb()
-      .select()
-      .from(ideas)
-      .where(
-        and(
-          eq(ideas.userId, userId),
-          isNull(ideas.deletedAt),
-          or(matches(ideas.title), matches(ideas.description))
-        )
-      )
-      .orderBy(desc(ideas.updatedAt))
-      .limit(20),
-    getDb()
-      .select()
-      .from(rawThoughts)
-      .where(
-        and(
-          eq(rawThoughts.userId, userId),
-          isNull(rawThoughts.deletedAt),
-          matches(rawThoughts.content)
-        )
-      )
-      .orderBy(desc(rawThoughts.createdAt))
-      .limit(20),
-    getDb()
-      .select({
-        id: drafts.id,
-        ideaId: drafts.ideaId,
-        content: drafts.content,
-        updatedAt: drafts.updatedAt,
-        title: ideas.title,
-      })
-      .from(drafts)
-      .innerJoin(ideas, eq(drafts.ideaId, ideas.id))
-      .where(
-        and(
-          eq(drafts.userId, userId),
-          isNull(ideas.deletedAt),
-          matches(drafts.content)
-        )
-      )
-      .orderBy(desc(drafts.lastSavedAt))
-      .limit(20),
+    wants("idea")
+      ? getDb()
+          .select()
+          .from(ideas)
+          .where(
+            and(
+              eq(ideas.userId, userId),
+              isNull(ideas.deletedAt),
+              or(matches(ideas.title), matches(ideas.description))
+            )
+          )
+      : Promise.resolve([]),
+    wants("thought")
+      ? getDb()
+          .select()
+          .from(rawThoughts)
+          .where(
+            and(
+              eq(rawThoughts.userId, userId),
+              isNull(rawThoughts.deletedAt),
+              matches(rawThoughts.content)
+            )
+          )
+      : Promise.resolve([]),
+    wants("draft")
+      ? getDb()
+          .select({
+            id: drafts.id,
+            ideaId: drafts.ideaId,
+            content: drafts.content,
+            updatedAt: drafts.updatedAt,
+            title: ideas.title,
+            status: ideas.status,
+            category: ideas.category,
+          })
+          .from(drafts)
+          .innerJoin(ideas, eq(drafts.ideaId, ideas.id))
+          .where(
+            and(
+              eq(drafts.userId, userId),
+              isNull(ideas.deletedAt),
+              matches(drafts.content)
+            )
+          )
+      : Promise.resolve([]),
   ]);
 
-  return [
-    ...ideaRows.map((idea): SearchHit => ({
-      kind: "idea",
+  const now = new Date();
+
+  const hits: SearchHit[] = [
+    ...ideaRows.map(idea => ({
+      kind: "idea" as const,
       id: idea.id,
       ideaId: idea.id,
       title: idea.title,
       excerpt: idea.description ?? "",
       updatedAt: idea.updatedAt,
+      status: idea.status,
+      category: idea.category,
+      score: scoreMatch(
+        {
+          kind: "idea",
+          title: idea.title,
+          body: idea.description ?? "",
+          updatedAt: idea.updatedAt,
+        },
+        trimmed,
+        now
+      ),
     })),
-    ...thoughtRows.map((thought): SearchHit => ({
-      kind: "thought",
+    ...thoughtRows.map(thought => ({
+      kind: "thought" as const,
       id: thought.id,
       ideaId: thought.linkedIdeaId,
       title: "Thought",
       excerpt: excerptAround(thought.content, trimmed),
       updatedAt: thought.updatedAt,
+      status: null,
+      category: null,
+      score: scoreMatch(
+        {
+          kind: "thought",
+          title: "",
+          body: thought.content,
+          updatedAt: thought.updatedAt,
+        },
+        trimmed,
+        now
+      ),
     })),
-    ...draftRows.map((draft): SearchHit => ({
-      kind: "draft",
+    ...draftRows.map(draft => ({
+      kind: "draft" as const,
       id: draft.id,
       ideaId: draft.ideaId,
       title: draft.title,
       excerpt: excerptAround(draft.content, trimmed),
       updatedAt: draft.updatedAt,
+      status: draft.status,
+      category: draft.category,
+      score: scoreMatch(
+        {
+          kind: "draft",
+          title: draft.title,
+          body: draft.content,
+          updatedAt: draft.updatedAt,
+        },
+        trimmed,
+        now
+      ),
     })),
-  ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  ];
+
+  return hits
+    .filter(hit => {
+      if (filters.status && hit.status !== filters.status) return false;
+      if (filters.category && hit.category !== filters.category) return false;
+      if (filters.since && hit.updatedAt < filters.since) return false;
+      return true;
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 50);
 }
 
 /** A window of text around the first match, so results show why they matched. */
