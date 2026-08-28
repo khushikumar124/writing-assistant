@@ -4,6 +4,7 @@ import {
   asc,
   desc,
   eq,
+  gt,
   inArray,
   isNotNull,
   isNull,
@@ -215,6 +216,17 @@ export async function createDemoUser(input: {
     })
     .returning();
   return created;
+}
+
+/** How many live sandboxes exist right now. */
+export async function countLiveSandboxes(): Promise<number> {
+  const rows = await getDb()
+    .select({ id: users.id })
+    .from(users)
+    .where(
+      and(isNotNull(users.demoExpiresAt), gt(users.demoExpiresAt, new Date()))
+    );
+  return rows.length;
 }
 
 /**

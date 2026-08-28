@@ -89,9 +89,17 @@ export default function Landing() {
       </section>
 
       <footer className="border-t border-border">
-        <div className="container flex h-16 items-center justify-between text-sm text-muted-foreground">
+        <div className="container flex h-16 flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
           <span>
             Your drafts stay private. Only what you ship can be made public.
+          </span>
+          <span className="flex items-center gap-4">
+            <Link href="/privacy" className="hover:text-foreground">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-foreground">
+              Terms
+            </Link>
           </span>
         </div>
       </footer>

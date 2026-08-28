@@ -1,3 +1,4 @@
+import { reportError } from "@/lib/reportError";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, RotateCcw } from "lucide-react";
 import { Component, ReactNode } from "react";
@@ -15,6 +16,15 @@ class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false, error: null };
+  }
+
+  /**
+   * Reported here rather than in `getDerivedStateFromError`, which is meant to
+   * be pure and can be called twice in StrictMode — this fires once per real
+   * crash.
+   */
+  componentDidCatch(error: Error) {
+    reportError(error, "ErrorBoundary");
   }
 
   static getDerivedStateFromError(error: Error): State {

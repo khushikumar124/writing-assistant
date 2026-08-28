@@ -3,6 +3,7 @@ import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqli
 import {
   IDEA_STATUSES,
   PLATFORMS,
+  REMINDER_FREQUENCIES,
   RESEARCH_SOURCES,
   USER_ROLES,
 } from "../shared/domain";
@@ -10,10 +11,12 @@ import {
 export {
   IDEA_STATUSES,
   PLATFORMS,
+  REMINDER_FREQUENCIES,
   RESEARCH_SOURCES,
   USER_ROLES,
   type IdeaStatus,
   type Platform,
+  type ReminderFrequency,
   type ResearchSource,
   type UserRole,
 } from "../shared/domain";
@@ -175,6 +178,26 @@ export const userPreferences = sqliteTable("userPreferences", {
   onboardingCompleted: integer("onboardingCompleted", { mode: "boolean" })
     .notNull()
     .default(false),
+
+  /**
+   * A daily words target. 0 means "not set", which is the default — a goal
+   * should be something you opt into, not a number the app assigns you.
+   */
+  dailyWordGoal: integer("dailyWordGoal").notNull().default(0),
+
+  /** How often to nudge. "off" unless the user asks for reminders. */
+  reminderFrequency: text("reminderFrequency", { enum: REMINDER_FREQUENCIES })
+    .notNull()
+    .default("off"),
+  /** Local wall-clock time to send at, "HH:MM". */
+  reminderTime: text("reminderTime").notNull().default("09:00"),
+  /** JSON array of weekday numbers (0=Sunday) for the custom schedule. */
+  reminderDays: text("reminderDays"),
+  /** The user's IANA zone, so a 9am reminder is 9am where they are. */
+  timeZone: text("timeZone").notNull().default("UTC"),
+  /** Guards against sending twice for the same window after a restart. */
+  lastRemindedAt: timestamp("lastRemindedAt"),
+
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -280,4 +303,34 @@ export const prompts = sqliteTable(
 );
 
 export type Prompt = typeof prompts.$inferSelect;
+
+/**
+ * Web Push endpoints, one row per browser that granted permission.
+ *
+ * Push is used rather than email because the app already ships a service
+ * worker, and because it means no mail provider, no deliverability problem and
+ * no address to store beyond what Google already gave us.
+ */
+export const pushSubscriptions = sqliteTable(
+  "pushSubscriptions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** The push service URL. Unique: one row per browser install. */
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    /** Consecutive delivery failures; a dead endpoint gets pruned. */
+    failureCount: integer("failureCount").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  table => [
+    uniqueIndex("pushSubscriptions_endpoint_unique").on(table.endpoint),
+    index("pushSubscriptions_userId_idx").on(table.userId),
+  ]
+);
+
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type InsertPrompt = typeof prompts.$inferInsert;

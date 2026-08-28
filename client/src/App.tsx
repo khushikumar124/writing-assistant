@@ -6,6 +6,7 @@ import Discover from "@/pages/Discover";
 import Editor from "@/pages/Editor";
 import Ideas from "@/pages/Ideas";
 import Landing from "@/pages/Landing";
+import { Privacy, Terms } from "@/pages/Legal";
 import NotFound from "@/pages/NotFound";
 import PublicShelf from "@/pages/PublicShelf";
 import Search from "@/pages/Search";
@@ -49,6 +50,8 @@ function Router() {
 
       {/* Public: no session needed. */}
       <Route path="/signin" component={SignIn} />
+      <Route path="/privacy" component={Privacy} />
+      <Route path="/terms" component={Terms} />
       {/* A regex, not "/@:username": wouter's path parser treats the leading
           "@" as part of the literal segment and never matches the param. */}
       <Route

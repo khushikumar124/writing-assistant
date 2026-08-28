@@ -113,8 +113,17 @@ export default function SignIn() {
           )}
         </Card>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          We only ever see your name, email address and profile picture.
+        <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">
+          We only ever see your name, email address and profile picture. By
+          signing in you agree to the{" "}
+          <Link href="/terms" className="underline underline-offset-4">
+            terms
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="underline underline-offset-4">
+            privacy note
+          </Link>
+          .
         </p>
       </div>
     </div>

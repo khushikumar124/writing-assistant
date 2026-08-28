@@ -8,7 +8,12 @@ import {
 import { DEMO_TTL_MS, ENV, googleEnabled } from "../_core/env";
 import { AUTH_LIMITS, clientIp, consume } from "../_core/rateLimit";
 import { publicProcedure, router } from "../_core/trpc";
-import { createDemoUser, purgeExpiredDemoUsers, toPublicUser } from "../db";
+import {
+  countLiveSandboxes,
+  createDemoUser,
+  purgeExpiredDemoUsers,
+  toPublicUser,
+} from "../db";
 import { seedSandbox } from "../sandbox";
 
 /**
@@ -21,6 +26,9 @@ import { seedSandbox } from "../sandbox";
  * There is deliberately no password anywhere in this app: no signup form, no
  * reset flow, no hashes at rest. Google is the only door.
  */
+/** Ceiling on concurrent sandboxes, so the demo can't fill the disk. */
+const MAX_LIVE_SANDBOXES = 200;
+
 export const authRouter = router({
   /** The signed-in user, or null. Drives every auth check on the client. */
   me: publicProcedure.query(({ ctx }) => ctx.user),
@@ -47,6 +55,17 @@ export const authRouter = router({
 
     // Opportunistic cleanup: expired sandboxes go out with each new one.
     await purgeExpiredDemoUsers();
+
+    // Sandboxes are unauthenticated writes to the server's disk, so there is a
+    // ceiling on how many can exist at once. The per-IP limiter above stops one
+    // person hammering it; this stops a distributed script filling the volume.
+    if ((await countLiveSandboxes()) >= MAX_LIVE_SANDBOXES) {
+      throw new TRPCError({
+        code: "TOO_MANY_REQUESTS",
+        message:
+          "Too many people are trying the demo right now. Sign in with Google, or try again a bit later.",
+      });
+    }
 
     const handle = crypto.randomBytes(8).toString("hex");
     const user = await createDemoUser({

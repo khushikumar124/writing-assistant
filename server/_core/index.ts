@@ -3,6 +3,12 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import express from "express";
 import { createServer } from "node:http";
 import { purgeExpiredDemoUsers, purgeExpiredTrash } from "../db";
+import { scheduleBackups } from "./backup";
+import {
+  installProcessHandlers,
+  mountErrorReporting,
+  report,
+} from "./observability";
 import { mountGoogleAuth } from "../googleAuth";
 import { migrateToLatest } from "../migrate";
 import { appRouter } from "../routers";
@@ -33,6 +39,8 @@ async function sweep() {
 }
 
 async function startServer() {
+  installProcessHandlers();
+
   // Schema first: the app should never serve a request against a database it
   // has outgrown, and a single-node deploy has no window to run this by hand.
   await migrateToLatest();
@@ -54,6 +62,8 @@ async function startServer() {
     res.json({ ok: true });
   });
 
+  mountErrorReporting(app);
+
   // Redirect-based sign-in, so it lives outside tRPC.
   mountGoogleAuth(app);
 
@@ -63,8 +73,14 @@ async function startServer() {
       router: appRouter,
       createContext,
       onError({ error, path }) {
+        // Only genuine faults: a NOT_FOUND or UNAUTHORIZED is the API working.
         if (error.code === "INTERNAL_SERVER_ERROR") {
-          console.error(`[trpc] ${path ?? "<no path>"}:`, error.cause ?? error);
+          report({
+            source: "server",
+            message: error.message,
+            stack: (error.cause instanceof Error ? error.cause : error).stack,
+            at: path ?? "<no path>",
+          });
         }
       },
     })
@@ -79,6 +95,7 @@ async function startServer() {
   server.listen(ENV.port, () => {
     console.log(`\n  Writing Assistant → http://localhost:${ENV.port}\n`);
     void sweep();
+    scheduleBackups();
   });
 }
 

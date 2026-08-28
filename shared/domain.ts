@@ -28,3 +28,24 @@ export type ResearchSource = (typeof RESEARCH_SOURCES)[number];
 
 export const USER_ROLES = ["user", "admin"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
+
+/**
+ * How often someone wants a nudge. "custom" pairs with a set of weekdays, so
+ * "every Tuesday and Friday" is expressible without a cron string.
+ */
+export const REMINDER_FREQUENCIES = [
+  "off",
+  "daily",
+  "weekly",
+  "monthly",
+  "custom",
+] as const;
+export type ReminderFrequency = (typeof REMINDER_FREQUENCIES)[number];
+
+export const REMINDER_LABELS: Record<ReminderFrequency, string> = {
+  off: "Never",
+  daily: "Every day",
+  weekly: "Once a week",
+  monthly: "Once a month",
+  custom: "On days I choose",
+};
