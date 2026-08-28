@@ -11,6 +11,7 @@ import {
 } from "./observability";
 import { mountGoogleAuth } from "../googleAuth";
 import { migrateToLatest } from "../migrate";
+import { scheduleReminders } from "../reminders";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { ENV } from "./env";
@@ -96,6 +97,7 @@ async function startServer() {
     console.log(`\n  Writing Assistant → http://localhost:${ENV.port}\n`);
     void sweep();
     scheduleBackups();
+    scheduleReminders();
   });
 }
 

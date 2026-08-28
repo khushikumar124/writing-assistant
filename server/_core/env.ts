@@ -45,6 +45,14 @@ export const ENV = {
    */
   googleClientId: process.env.GOOGLE_CLIENT_ID?.trim() || null,
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET?.trim() || null,
+  /**
+   * Web Push signing keys. Generate a pair with `npm run keys:vapid`. Without
+   * them the reminder settings hide themselves and nothing is scheduled.
+   */
+  vapidPublicKey: process.env.VAPID_PUBLIC_KEY?.trim() || null,
+  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY?.trim() || null,
+  /** Contact address push services can use to reach the operator. */
+  vapidSubject: process.env.VAPID_SUBJECT?.trim() || "mailto:hello@example.com",
 } as const;
 
 /** True when both Google credentials are configured. */

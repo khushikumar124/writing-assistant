@@ -1,4 +1,5 @@
 import AppShell from "@/components/AppShell";
+import ReminderSettings from "@/components/ReminderSettings";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -33,6 +34,7 @@ export default function Settings() {
 
         <ProfileSection />
         <GoalSection />
+        <ReminderSettings />
         <AppearanceSection />
         <DataSection />
         <DangerSection />

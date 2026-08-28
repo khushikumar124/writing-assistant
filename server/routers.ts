@@ -6,6 +6,7 @@ import { draftsRouter } from "./routers/drafts";
 import { ideasRouter } from "./routers/ideas";
 import { profileRouter } from "./routers/profile";
 import { promptsRouter } from "./routers/prompts";
+import { remindersRouter } from "./routers/reminders";
 import { searchRouter } from "./routers/search";
 import { statsRouter } from "./routers/stats";
 import { thoughtsRouter } from "./routers/thoughts";
@@ -23,6 +24,7 @@ export const appRouter = router({
   thoughts: thoughtsRouter,
   stats: statsRouter,
   prompts: promptsRouter,
+  reminders: remindersRouter,
   profile: profileRouter,
   search: searchRouter,
 });

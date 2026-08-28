@@ -19,6 +19,7 @@ import {
   drafts,
   ideas,
   prompts,
+  pushSubscriptions,
   research,
   userCategories,
   userPreferences,
@@ -42,6 +43,7 @@ export const schema = {
   rawThoughts,
   writingSessions,
   prompts,
+  pushSubscriptions,
 };
 
 let cached: ReturnType<typeof createDb> | null = null;
@@ -326,6 +328,84 @@ export async function deleteAccount(userId: number): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
+// Push subscriptions and reminders
+// ---------------------------------------------------------------------------
+
+/**
+ * Stores a browser's push endpoint. Upserts on the endpoint, because the same
+ * browser re-subscribing should update its keys rather than pile up rows.
+ */
+export async function savePushSubscription(input: {
+  userId: number;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}) {
+  const [saved] = await getDb()
+    .insert(pushSubscriptions)
+    .values(input)
+    .onConflictDoUpdate({
+      target: pushSubscriptions.endpoint,
+      set: {
+        userId: input.userId,
+        p256dh: input.p256dh,
+        auth: input.auth,
+        failureCount: 0,
+      },
+    })
+    .returning();
+  return saved;
+}
+
+export async function deletePushSubscription(endpoint: string): Promise<void> {
+  await getDb()
+    .delete(pushSubscriptions)
+    .where(eq(pushSubscriptions.endpoint, endpoint));
+}
+
+export async function listPushSubscriptions(userId: number) {
+  return getDb()
+    .select()
+    .from(pushSubscriptions)
+    .where(eq(pushSubscriptions.userId, userId));
+}
+
+export async function countPushSubscriptions(userId: number): Promise<number> {
+  return (await listPushSubscriptions(userId)).length;
+}
+
+/**
+ * Everyone who has reminders switched on, with the settings the scheduler
+ * needs. Real accounts only — a sandbox expires before its first nudge.
+ */
+export async function listReminderCandidates() {
+  return getDb()
+    .select({
+      userId: userPreferences.userId,
+      frequency: userPreferences.reminderFrequency,
+      time: userPreferences.reminderTime,
+      days: userPreferences.reminderDays,
+      timeZone: userPreferences.timeZone,
+      lastRemindedAt: userPreferences.lastRemindedAt,
+    })
+    .from(userPreferences)
+    .innerJoin(users, eq(users.id, userPreferences.userId))
+    .where(
+      and(
+        isNull(users.demoExpiresAt),
+        sql`${userPreferences.reminderFrequency} != 'off'`
+      )
+    );
+}
+
+export async function markReminded(userId: number): Promise<void> {
+  await getDb()
+    .update(userPreferences)
+    .set({ lastRemindedAt: new Date(), updatedAt: new Date() })
+    .where(eq(userPreferences.userId, userId));
+}
+
+// ---------------------------------------------------------------------------
 // Ideas
 // ---------------------------------------------------------------------------
 
@@ -539,6 +619,10 @@ export async function updatePreferences(
     defaultPlatform?: "substack" | "medium" | "both";
     onboardingCompleted?: boolean;
     dailyWordGoal?: number;
+    reminderFrequency?: "off" | "daily" | "weekly" | "monthly" | "custom";
+    reminderTime?: string;
+    reminderDays?: string | null;
+    timeZone?: string;
   }
 ) {
   await getPreferences(userId); // ensure the row exists

@@ -8,7 +8,7 @@
  * a stale draft they then edit is worse than showing them an error.
  */
 
-const CACHE = "writing-assistant-shell-v1";
+const CACHE = "writing-assistant-shell-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/favicon.svg"];
 
 self.addEventListener("install", event => {
@@ -61,5 +61,58 @@ self.addEventListener("fetch", event => {
 
       return cached ?? network;
     })
+  );
+});
+
+
+/**
+ * Reminders.
+ *
+ * The payload is JSON written by the server. A push that arrives with no body
+ * still shows something rather than the browser's own "This site has been
+ * updated in the background" placeholder, which is alarming and says nothing.
+ */
+self.addEventListener("push", event => {
+  let payload = {
+    title: "Time to write, if you'd like",
+    body: "A few minutes is enough.",
+    url: "/",
+  };
+
+  try {
+    if (event.data) payload = { ...payload, ...event.data.json() };
+  } catch {
+    // Malformed payload: fall back to the default rather than showing nothing.
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      // One reminder at a time. A stack of identical nudges is nagging.
+      tag: "writing-reminder",
+      renotify: false,
+      data: { url: payload.url },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const target = event.notification.data?.url || "/";
+
+  // Focus an open tab if there is one rather than opening a duplicate.
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then(clients => {
+        for (const client of clients) {
+          if (client.url.includes(new URL(target, self.location.origin).pathname)) {
+            return client.focus();
+          }
+        }
+        return self.clients.openWindow(target);
+      })
   );
 });
