@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Typography, for the editor's preview pane. Tailwind v4 loads plugins from
+   CSS rather than a config file. */
+@plugin "@tailwindcss/typography";
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * Design system: "Workbench"
  *
@@ -233,6 +237,13 @@
 }
 
 @layer components {
+  /* Tailwind's typography plugin draws literal backticks around inline code.
+     They read as a rendering bug next to a serif body face, so they go. */
+  .prose :where(code):not(:where([class~="not-prose"] *))::before,
+  .prose :where(code):not(:where([class~="not-prose"] *))::after {
+    content: "";
+  }
+
   .container {
     width: 100%;
     margin-left: auto;
