@@ -58,6 +58,19 @@ above, Google does not require a verification review.
 There is no email provider to set up: the app sends no mail. Google is the
 only way to sign in, so there are no passwords to reset.
 
+### For reminders (optional)
+
+Generate a Web Push key pair once:
+
+```bash
+npm run keys:vapid
+```
+
+Set the three values it prints. **Never regenerate them on a live deploy** —
+every existing subscription is signed against the old public key and would
+silently stop being delivered. Without them the reminder settings show as
+unavailable and nothing is scheduled; everything else works.
+
 ---
 
 ## 2. Deploy to Fly
@@ -137,6 +150,7 @@ complaining.
 | `APP_URL` | **Yes** in prod | OAuth callback and email links point at localhost |
 | `DATABASE_URL` | Set in `fly.toml` | Defaults to `./data/app.db`, which is *not* on the volume |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | **Yes** in practice | No way to sign in; only the sandbox button works |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | No | Reminders show as unavailable |
 | `DEMO_MODE` | No | Set `false` to remove the sandbox button |
 | `PORT` | No | Defaults to 3000 |
 
@@ -164,6 +178,10 @@ so this affects local testing only.
 ---
 
 ## 5. Backups
+
+The app takes its own snapshot on boot and daily, keeping seven in
+`/data/backups` — that covers a bad migration or a delete gone wrong, but not
+losing the volume itself, so pulling one off the machine is still worth doing.
 
 Fly volumes get daily snapshots, but a snapshot is not a backup you have tested.
 For a text database this is small enough to just pull down:
@@ -194,6 +212,8 @@ fly ssh sftp get /data/backup.db
 - [ ] Decide on `DEMO_MODE`: sandboxes are unauthenticated writes to your disk
 - [ ] Privacy note somewhere, since you now hold other people's unpublished work
 - [ ] Account deletion tried once on a throwaway account
+- [ ] If reminders are on: a test notification actually arrived
+- [ ] A shelf link pasted somewhere, to confirm it unfurls with a real title
 
 ---
 

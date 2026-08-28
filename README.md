@@ -46,6 +46,7 @@ you out.
 | `npm run db:generate` | Generates a migration from schema changes |
 | `npm run db:migrate` | Applies migrations |
 | `npm run db:reset` | Drops the database and re-migrates |
+| `npm run keys:vapid` | Generates Web Push keys for reminders |
 
 ## Architecture
 
@@ -76,6 +77,13 @@ you out.
 - **Account deletion is a real erasure**, not a soft delete — the row goes and
   every table cascades. The export in Settings exists so that is not a
   destructive-only choice.
+- **Reminders are Web Push, not email.** The scheduling rules are a pure
+  function in `shared/reminders.ts` so timezones and month boundaries are
+  tested rather than observed in production. Permission and schedule are two
+  separate steps on purpose.
+- **Search ranks in JS, not SQL.** `LIKE` narrows, `shared/search.ts` scores.
+  FTS5's BM25 would rank by term frequency, which puts a draft saying "index"
+  forty times above the idea actually titled "Indexes".
 - **Public shelves are opt-in and publish only shipped work** — titles, blurbs,
   links and dates. Draft prose, thoughts, and streaks are never exposed.
 - **`/@handle` needs the dev-server rewrite** in `server/_core/vite.ts`; Vite
