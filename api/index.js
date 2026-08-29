@@ -104,11 +104,11 @@ function mountErrorReporting(app2) {
   app2.post("/api/errors", (req, res) => {
     const ip = req.ip ?? "unknown";
     const now = Date.now();
-    const count = (seen.get(ip) ?? 0) + 1;
-    seen.set(ip, count);
+    const count2 = (seen.get(ip) ?? 0) + 1;
+    seen.set(ip, count2);
     if (seen.size > 2e3) seen.clear();
     setTimeout(() => seen.delete(ip), WINDOW_MS).unref?.();
-    if (count > MAX_PER_WINDOW) {
+    if (count2 > MAX_PER_WINDOW) {
       res.status(429).end();
       return;
     }
@@ -255,6 +255,12 @@ var init_schema = __esm({
          * rows sit here until the user empties the bin or 30 days pass.
          */
         deletedAt: timestamp("deletedAt"),
+        /**
+         * Archived: out of the way but not on its way out. Distinct from
+         * `deletedAt` because the bin empties itself after 30 days and this never
+         * does — a piece you have set aside should still be there next year.
+         */
+        archivedAt: timestamp("archivedAt"),
         createdAt: createdAt(),
         updatedAt: updatedAt()
       },
@@ -342,6 +348,8 @@ var init_schema = __esm({
         }),
         /** Soft delete, same reasoning as `ideas.deletedAt`. */
         deletedAt: timestamp("deletedAt"),
+        /** Archived, same reasoning as `ideas.archivedAt`. */
+        archivedAt: timestamp("archivedAt"),
         createdAt: createdAt(),
         updatedAt: updatedAt()
       },
@@ -458,6 +466,7 @@ var init_search = __esm({
 import {
   and,
   asc,
+  count,
   desc,
   eq,
   gt,
@@ -655,7 +664,32 @@ async function markReminded(userId) {
   await getDb().update(userPreferences).set({ lastRemindedAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() }).where(eq(userPreferences.userId, userId));
 }
 async function listIdeas(userId) {
-  return getDb().select().from(ideas).where(and(eq(ideas.userId, userId), isNull(ideas.deletedAt))).orderBy(desc(ideas.updatedAt));
+  return getDb().select().from(ideas).where(
+    and(
+      eq(ideas.userId, userId),
+      isNull(ideas.deletedAt),
+      isNull(ideas.archivedAt)
+    )
+  ).orderBy(desc(ideas.updatedAt));
+}
+async function listArchivedIdeas(userId) {
+  return getDb().select().from(ideas).where(
+    and(
+      eq(ideas.userId, userId),
+      isNull(ideas.deletedAt),
+      isNotNull(ideas.archivedAt)
+    )
+  ).orderBy(desc(ideas.archivedAt));
+}
+async function setIdeaArchived(ideaId, userId, archived) {
+  const [row] = await getDb().update(ideas).set({ archivedAt: archived ? /* @__PURE__ */ new Date() : null }).where(
+    and(
+      eq(ideas.id, ideaId),
+      eq(ideas.userId, userId),
+      isNull(ideas.deletedAt)
+    )
+  ).returning({ id: ideas.id });
+  return row ?? null;
 }
 async function listPublishedIdeas(userId) {
   return getDb().select().from(ideas).where(
@@ -775,7 +809,32 @@ async function deleteDraft(draftId, userId) {
   return deleted.length > 0;
 }
 async function listThoughts(userId) {
-  return getDb().select().from(rawThoughts).where(and(eq(rawThoughts.userId, userId), isNull(rawThoughts.deletedAt))).orderBy(desc(rawThoughts.createdAt));
+  return getDb().select().from(rawThoughts).where(
+    and(
+      eq(rawThoughts.userId, userId),
+      isNull(rawThoughts.deletedAt),
+      isNull(rawThoughts.archivedAt)
+    )
+  ).orderBy(desc(rawThoughts.createdAt));
+}
+async function listArchivedThoughts(userId) {
+  return getDb().select().from(rawThoughts).where(
+    and(
+      eq(rawThoughts.userId, userId),
+      isNull(rawThoughts.deletedAt),
+      isNotNull(rawThoughts.archivedAt)
+    )
+  ).orderBy(desc(rawThoughts.archivedAt));
+}
+async function setThoughtArchived(thoughtId, userId, archived) {
+  const [row] = await getDb().update(rawThoughts).set({ archivedAt: archived ? /* @__PURE__ */ new Date() : null }).where(
+    and(
+      eq(rawThoughts.id, thoughtId),
+      eq(rawThoughts.userId, userId),
+      isNull(rawThoughts.deletedAt)
+    )
+  ).returning({ id: rawThoughts.id });
+  return row ?? null;
 }
 async function listThoughtsForIdea(ideaId, userId) {
   return getDb().select().from(rawThoughts).where(
@@ -2365,6 +2424,30 @@ var init_ideas = __esm({
         }
         return { success: true, id: input.id };
       }),
+      listArchived: protectedProcedure.query(
+        ({ ctx }) => listArchivedIdeas(ctx.user.id)
+      ),
+      /**
+       * Archive and unarchive share one procedure: the caller says what state it
+       * wants rather than which direction to move, so an undo is the same call
+       * with the flag flipped.
+       */
+      setArchived: protectedProcedure.input(
+        z4.object({ id: z4.number().int().positive(), archived: z4.boolean() })
+      ).mutation(async ({ ctx, input }) => {
+        const updated = await setIdeaArchived(
+          input.id,
+          ctx.user.id,
+          input.archived
+        );
+        if (!updated) {
+          throw new TRPCError7({
+            code: "NOT_FOUND",
+            message: "That idea no longer exists."
+          });
+        }
+        return { success: true, id: input.id, archived: input.archived };
+      }),
       restore: protectedProcedure.input(z4.object({ id: z4.number().int().positive() })).mutation(async ({ ctx, input }) => {
         const restored = await restoreIdea(input.id, ctx.user.id);
         if (!restored) {
@@ -3108,6 +3191,26 @@ var init_thoughts = __esm({
           });
         }
         return { success: true, id: input.id };
+      }),
+      listArchived: protectedProcedure.query(
+        ({ ctx }) => listArchivedThoughts(ctx.user.id)
+      ),
+      /** Same shape as the ideas router: state, not direction, so undo is trivial. */
+      setArchived: protectedProcedure.input(
+        z10.object({ id: z10.number().int().positive(), archived: z10.boolean() })
+      ).mutation(async ({ ctx, input }) => {
+        const updated = await setThoughtArchived(
+          input.id,
+          ctx.user.id,
+          input.archived
+        );
+        if (!updated) {
+          throw new TRPCError10({
+            code: "NOT_FOUND",
+            message: "That thought no longer exists."
+          });
+        }
+        return { success: true, id: input.id, archived: input.archived };
       }),
       restore: protectedProcedure.input(z10.object({ id: z10.number().int().positive() })).mutation(async ({ ctx, input }) => {
         const restored = await restoreThought(input.id, ctx.user.id);

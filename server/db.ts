@@ -1,6 +1,7 @@
 import {
   and,
   asc,
+  count,
   desc,
   eq,
   gt,
@@ -415,8 +416,48 @@ export async function listIdeas(userId: number) {
   return getDb()
     .select()
     .from(ideas)
-    .where(and(eq(ideas.userId, userId), isNull(ideas.deletedAt)))
+    .where(
+      and(
+        eq(ideas.userId, userId),
+        isNull(ideas.deletedAt),
+        isNull(ideas.archivedAt)
+      )
+    )
     .orderBy(desc(ideas.updatedAt));
+}
+
+/** Set aside, not thrown away. Ordered by when they were archived. */
+export async function listArchivedIdeas(userId: number) {
+  return getDb()
+    .select()
+    .from(ideas)
+    .where(
+      and(
+        eq(ideas.userId, userId),
+        isNull(ideas.deletedAt),
+        isNotNull(ideas.archivedAt)
+      )
+    )
+    .orderBy(desc(ideas.archivedAt));
+}
+
+export async function setIdeaArchived(
+  ideaId: number,
+  userId: number,
+  archived: boolean
+) {
+  const [row] = await getDb()
+    .update(ideas)
+    .set({ archivedAt: archived ? new Date() : null })
+    .where(
+      and(
+        eq(ideas.id, ideaId),
+        eq(ideas.userId, userId),
+        isNull(ideas.deletedAt)
+      )
+    )
+    .returning({ id: ideas.id });
+  return row ?? null;
 }
 
 /** The shipped shelf: everything that actually went out, newest first. */
@@ -584,6 +625,30 @@ export async function updateCategory(
   return updated ?? null;
 }
 
+/**
+ * How many live ideas still name this category.
+ *
+ * `ideas.category` is free text rather than a foreign key, so deleting a
+ * category cannot cascade — it would just leave those ideas pointing at a name
+ * that no longer exists. Counting first lets the user see that before deciding.
+ */
+export async function countIdeasInCategory(
+  userId: number,
+  name: string
+): Promise<number> {
+  const [row] = await getDb()
+    .select({ count: count() })
+    .from(ideas)
+    .where(
+      and(
+        eq(ideas.userId, userId),
+        eq(ideas.category, name),
+        isNull(ideas.deletedAt)
+      )
+    );
+  return row?.count ?? 0;
+}
+
 export async function deleteCategory(categoryId: number, userId: number) {
   const deleted = await getDb()
     .delete(userCategories)
@@ -710,8 +775,48 @@ export async function listThoughts(userId: number) {
   return getDb()
     .select()
     .from(rawThoughts)
-    .where(and(eq(rawThoughts.userId, userId), isNull(rawThoughts.deletedAt)))
+    .where(
+      and(
+        eq(rawThoughts.userId, userId),
+        isNull(rawThoughts.deletedAt),
+        isNull(rawThoughts.archivedAt)
+      )
+    )
     .orderBy(desc(rawThoughts.createdAt));
+}
+
+/** Kept, but out of the daily stream. */
+export async function listArchivedThoughts(userId: number) {
+  return getDb()
+    .select()
+    .from(rawThoughts)
+    .where(
+      and(
+        eq(rawThoughts.userId, userId),
+        isNull(rawThoughts.deletedAt),
+        isNotNull(rawThoughts.archivedAt)
+      )
+    )
+    .orderBy(desc(rawThoughts.archivedAt));
+}
+
+export async function setThoughtArchived(
+  thoughtId: number,
+  userId: number,
+  archived: boolean
+) {
+  const [row] = await getDb()
+    .update(rawThoughts)
+    .set({ archivedAt: archived ? new Date() : null })
+    .where(
+      and(
+        eq(rawThoughts.id, thoughtId),
+        eq(rawThoughts.userId, userId),
+        isNull(rawThoughts.deletedAt)
+      )
+    )
+    .returning({ id: rawThoughts.id });
+  return row ?? null;
 }
 
 /** The thoughts feeding one idea — shown in the editor's side rail. */

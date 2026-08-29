@@ -73,6 +73,27 @@ beforeEach(async () => {
 });
 
 describe("thoughts", () => {
+  it("archives out of the pile and back again", async () => {
+    const caller = callerFor(alice);
+    const thought = await caller.thoughts.create({ content: "later, maybe" });
+
+    await caller.thoughts.setArchived({ id: thought.id, archived: true });
+    expect(await caller.thoughts.list()).toHaveLength(0);
+    expect(await caller.thoughts.listArchived()).toHaveLength(1);
+
+    await caller.thoughts.setArchived({ id: thought.id, archived: false });
+    expect(await caller.thoughts.list()).toHaveLength(1);
+  });
+
+  it("cannot archive another account's thought", async () => {
+    const thought = await callerFor(alice).thoughts.create({
+      content: "private",
+    });
+    await expect(
+      callerFor(bob).thoughts.setArchived({ id: thought.id, archived: true })
+    ).rejects.toThrow();
+  });
+
   it("captures and lists a thought", async () => {
     const caller = callerFor(alice);
     await caller.thoughts.create({ content: "a caught thought", tags: ["x"] });
@@ -133,6 +154,45 @@ describe("thoughts", () => {
 });
 
 describe("ideas", () => {
+  it("archives out of the main list and back again", async () => {
+    const caller = callerFor(alice);
+    const idea = await caller.ideas.create({
+      title: "Set aside",
+      category: "General",
+    });
+
+    await caller.ideas.setArchived({ id: idea.id, archived: true });
+    expect(await caller.ideas.list()).toHaveLength(0);
+    expect(await caller.ideas.listArchived()).toHaveLength(1);
+
+    await caller.ideas.setArchived({ id: idea.id, archived: false });
+    expect(await caller.ideas.list()).toHaveLength(1);
+    expect(await caller.ideas.listArchived()).toHaveLength(0);
+  });
+
+  it("keeps archiving separate from the bin", async () => {
+    const caller = callerFor(alice);
+    const idea = await caller.ideas.create({
+      title: "Filed away",
+      category: "General",
+    });
+    await caller.ideas.setArchived({ id: idea.id, archived: true });
+
+    // The bin empties itself after 30 days; the archive never does, so an
+    // archived idea must not be sitting in the bin.
+    expect(await caller.ideas.listDeleted()).toHaveLength(0);
+  });
+
+  it("cannot archive another account's idea", async () => {
+    const idea = await callerFor(alice).ideas.create({
+      title: "Mine",
+      category: "General",
+    });
+    await expect(
+      callerFor(bob).ideas.setArchived({ id: idea.id, archived: true })
+    ).rejects.toThrow();
+  });
+
   it("soft deletes to the bin, then restores", async () => {
     const caller = callerFor(alice);
     const idea = await caller.ideas.create({

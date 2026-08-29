@@ -23,7 +23,7 @@ import { parseTags, relativeTime } from "@/lib/format";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import type { RawThought } from "@shared/types";
-import { Combine, Trash2, X } from "lucide-react";
+import { Archive, ArchiveRestore, Combine, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Link, useLocation } from "wouter";
@@ -32,9 +32,17 @@ export default function Thoughts() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [merging, setMerging] = useState(false);
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [showArchive, setShowArchive] = useState(false);
 
   const utils = trpc.useUtils();
-  const { data: thoughts, isPending } = trpc.thoughts.list.useQuery();
+  const { data: live, isPending: livePending } = trpc.thoughts.list.useQuery(
+    undefined,
+    { enabled: !showArchive }
+  );
+  const { data: archived, isPending: archivePending } =
+    trpc.thoughts.listArchived.useQuery(undefined, { enabled: showArchive });
+  const thoughts = showArchive ? archived : live;
+  const isPending = showArchive ? archivePending : livePending;
 
   const restore = trpc.thoughts.restore.useMutation({
     onSuccess: async () => {
@@ -43,6 +51,24 @@ export default function Thoughts() {
         utils.stats.dashboard.invalidate(),
       ]);
     },
+  });
+
+  const setArchived = trpc.thoughts.setArchived.useMutation({
+    onSuccess: async result => {
+      await Promise.all([
+        utils.thoughts.list.invalidate(),
+        utils.thoughts.listArchived.invalidate(),
+        utils.stats.dashboard.invalidate(),
+      ]);
+      toast(result.archived ? "Archived." : "Back in your thoughts.", {
+        action: {
+          label: "Undo",
+          onClick: () =>
+            setArchived.mutate({ id: result.id, archived: !result.archived }),
+        },
+      });
+    },
+    onError: error => toast.error(error.message),
   });
 
   const remove = trpc.thoughts.delete.useMutation({
@@ -84,12 +110,29 @@ export default function Thoughts() {
   return (
     <AppShell>
       <div className="space-y-6 pb-24">
-        <div>
-          <h1 className="text-3xl md:text-4xl">Thoughts</h1>
-          <p className="mt-1 text-muted-foreground">
-            The unsorted pile. Select a few that belong together and forge them
-            into one idea.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl">
+              {showArchive ? "Archived thoughts" : "Thoughts"}
+            </h1>
+            <p className="mt-1 text-muted-foreground">
+              {showArchive
+                ? "Kept, but out of the way. Put any of them back whenever."
+                : "The unsorted pile. Select a few that belong together and forge them into one idea."}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setShowArchive(value => !value);
+              setActiveTag(null);
+              setSelected(new Set());
+            }}
+          >
+            <Archive className="mr-2 size-4" aria-hidden />
+            {showArchive ? "Back to thoughts" : "Archive"}
+          </Button>
         </div>
 
         {allTags.length > 0 && (
@@ -177,8 +220,34 @@ export default function Thoughts() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            onClick={() =>
+                              setArchived.mutate({
+                                id: thought.id,
+                                archived: !showArchive,
+                              })
+                            }
+                            aria-label={
+                              showArchive
+                                ? "Put thought back"
+                                : "Archive thought"
+                            }
+                            title={showArchive ? "Put back" : "Archive"}
+                          >
+                            {showArchive ? (
+                              <ArchiveRestore
+                                className="size-3.5"
+                                aria-hidden
+                              />
+                            ) : (
+                              <Archive className="size-3.5" aria-hidden />
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
                             onClick={() => remove.mutate({ id: thought.id })}
                             aria-label="Delete thought"
+                            title="Delete"
                           >
                             <Trash2 className="size-3.5" aria-hidden />
                           </Button>

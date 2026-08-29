@@ -16,12 +16,14 @@ import { relativeTime, statusClasses, statusLabel } from "@/lib/format";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { IDEA_STATUSES } from "@shared/types";
-import { Plus, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
-const FILTERS = ["all", ...IDEA_STATUSES] as const;
+// "archived" is not a status — it is a separate list, and sits last so the
+// status filters stay together.
+const FILTERS = ["all", ...IDEA_STATUSES, "archived"] as const;
 type Filter = (typeof FILTERS)[number];
 
 export default function Ideas() {
@@ -29,7 +31,12 @@ export default function Ideas() {
   const [showForm, setShowForm] = useState(false);
 
   const utils = trpc.useUtils();
-  const { data: ideas, isPending } = trpc.ideas.list.useQuery();
+  const showingArchive = filter === "archived";
+  const { data: ideas, isPending } = trpc.ideas.list.useQuery(undefined, {
+    enabled: !showingArchive,
+  });
+  const { data: archived, isPending: archivePending } =
+    trpc.ideas.listArchived.useQuery(undefined, { enabled: showingArchive });
   const { data: categories = [] } = trpc.categories.list.useQuery();
 
   const restore = trpc.ideas.restore.useMutation({
@@ -38,6 +45,24 @@ export default function Ideas() {
         utils.ideas.list.invalidate(),
         utils.stats.dashboard.invalidate(),
       ]);
+    },
+    onError: error => toast.error(error.message),
+  });
+
+  const setArchived = trpc.ideas.setArchived.useMutation({
+    onSuccess: async result => {
+      await Promise.all([
+        utils.ideas.list.invalidate(),
+        utils.ideas.listArchived.invalidate(),
+        utils.stats.dashboard.invalidate(),
+      ]);
+      toast(result.archived ? "Archived." : "Back in your ideas.", {
+        action: {
+          label: "Undo",
+          onClick: () =>
+            setArchived.mutate({ id: result.id, archived: !result.archived }),
+        },
+      });
     },
     onError: error => toast.error(error.message),
   });
@@ -61,8 +86,11 @@ export default function Ideas() {
     onError: error => toast.error(error.message),
   });
 
-  const visible =
-    filter === "all" ? ideas : ideas?.filter(idea => idea.status === filter);
+  const visible = showingArchive
+    ? archived
+    : filter === "all"
+      ? ideas
+      : ideas?.filter(idea => idea.status === filter);
 
   return (
     <AppShell>
@@ -95,12 +123,16 @@ export default function Ideas() {
               variant={filter === value ? "default" : "outline"}
               onClick={() => setFilter(value)}
             >
-              {value === "all" ? "All" : statusLabel(value)}
+              {value === "all"
+                ? "All"
+                : value === "archived"
+                  ? "Archived"
+                  : statusLabel(value)}
             </Button>
           ))}
         </div>
 
-        {isPending ? (
+        {(showingArchive ? archivePending : isPending) ? (
           <div className="grid gap-4 md:grid-cols-2">
             {Array.from({ length: 4 }, (_, index) => (
               <Skeleton key={index} className="h-36" />
@@ -109,22 +141,53 @@ export default function Ideas() {
         ) : visible && visible.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2">
             {visible.map(idea => (
-              <Card key={idea.id} className="card-lift flex flex-col p-5">
+              <Card
+                key={idea.id}
+                className="card-lift relative flex flex-col p-5"
+              >
                 <div className="mb-3 flex items-start justify-between gap-3">
+                  {/*
+                   * The overlay stretches this one link across the whole card,
+                   * so anywhere on it opens the editor. Keeping it a real link
+                   * on the title means the accessible name is the title, and
+                   * middle-click and "open in new tab" still work.
+                   */}
                   <Link
                     href={`/ideas/${idea.id}`}
-                    className="font-semibold hover:text-primary"
+                    className="font-semibold after:absolute after:inset-0 after:content-[''] hover:text-primary"
                   >
                     {idea.title}
                   </Link>
-                  <button
-                    onClick={() => remove.mutate({ id: idea.id })}
-                    disabled={remove.isPending}
-                    className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
-                    aria-label={`Delete ${idea.title}`}
-                  >
-                    <Trash2 className="size-4" aria-hidden />
-                  </button>
+                  {/* Above the overlay, or the card would swallow these. */}
+                  <div className="relative z-10 flex shrink-0 items-center gap-1">
+                    <button
+                      onClick={() =>
+                        setArchived.mutate({
+                          id: idea.id,
+                          archived: !showingArchive,
+                        })
+                      }
+                      disabled={setArchived.isPending}
+                      className="text-muted-foreground transition-colors hover:text-primary"
+                      aria-label={`${showingArchive ? "Unarchive" : "Archive"} ${idea.title}`}
+                      title={showingArchive ? "Put back" : "Archive"}
+                    >
+                      {showingArchive ? (
+                        <ArchiveRestore className="size-4" aria-hidden />
+                      ) : (
+                        <Archive className="size-4" aria-hidden />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => remove.mutate({ id: idea.id })}
+                      disabled={remove.isPending}
+                      className="text-muted-foreground transition-colors hover:text-destructive"
+                      aria-label={`Delete ${idea.title}`}
+                      title="Delete"
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                    </button>
+                  </div>
                 </div>
 
                 {idea.description && (
@@ -174,14 +237,17 @@ function NewIdeaForm({
   const [category, setCategory] = useState(categories[0]?.name ?? "");
 
   const utils = trpc.useUtils();
+  const [, navigate] = useLocation();
   const create = trpc.ideas.create.useMutation({
-    onSuccess: async () => {
+    onSuccess: async idea => {
       await Promise.all([
         utils.ideas.list.invalidate(),
         utils.stats.dashboard.invalidate(),
       ]);
-      toast.success("Idea saved.");
       onDone();
+      // Straight into the editor. Naming a piece is not the thing you sat
+      // down to do, and stopping at the form makes you find it again to start.
+      navigate(`/ideas/${idea.id}`);
     },
     onError: error => toast.error(error.message),
   });

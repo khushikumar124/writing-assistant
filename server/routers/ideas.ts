@@ -13,11 +13,13 @@ import {
   deleteResearch,
   getIdea,
   listDeletedIdeas,
+  listArchivedIdeas,
   listIdeas,
   listPublishedIdeas,
   listResearch,
   purgeTrash,
   restoreIdea,
+  setIdeaArchived,
   softDeleteIdea,
   updateIdea,
 } from "../db";
@@ -166,6 +168,34 @@ export const ideasRouter = router({
         });
       }
       return { success: true, id: input.id } as const;
+    }),
+
+  listArchived: protectedProcedure.query(({ ctx }) =>
+    listArchivedIdeas(ctx.user.id)
+  ),
+
+  /**
+   * Archive and unarchive share one procedure: the caller says what state it
+   * wants rather than which direction to move, so an undo is the same call
+   * with the flag flipped.
+   */
+  setArchived: protectedProcedure
+    .input(
+      z.object({ id: z.number().int().positive(), archived: z.boolean() })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const updated = await setIdeaArchived(
+        input.id,
+        ctx.user.id,
+        input.archived
+      );
+      if (!updated) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That idea no longer exists.",
+        });
+      }
+      return { success: true, id: input.id, archived: input.archived } as const;
     }),
 
   restore: protectedProcedure

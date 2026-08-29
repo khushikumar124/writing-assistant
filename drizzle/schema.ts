@@ -115,6 +115,12 @@ export const ideas = pgTable(
      * rows sit here until the user empties the bin or 30 days pass.
      */
     deletedAt: timestamp("deletedAt"),
+    /**
+     * Archived: out of the way but not on its way out. Distinct from
+     * `deletedAt` because the bin empties itself after 30 days and this never
+     * does — a piece you have set aside should still be there next year.
+     */
+    archivedAt: timestamp("archivedAt"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -254,6 +260,8 @@ export const rawThoughts = pgTable(
     }),
     /** Soft delete, same reasoning as `ideas.deletedAt`. */
     deletedAt: timestamp("deletedAt"),
+    /** Archived, same reasoning as `ideas.archivedAt`. */
+    archivedAt: timestamp("archivedAt"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

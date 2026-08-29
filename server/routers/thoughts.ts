@@ -7,11 +7,13 @@ import {
   deleteThought,
   getThoughtsByIds,
   linkThoughtsToIdea,
+  listArchivedThoughts,
   listDeletedThoughts,
   listThoughts,
   listThoughtsForIdea,
   listUnlinkedThoughts,
   restoreThought,
+  setThoughtArchived,
   softDeleteThought,
   updateThought,
 } from "../db";
@@ -177,6 +179,30 @@ export const thoughtsRouter = router({
         });
       }
       return { success: true, id: input.id } as const;
+    }),
+
+  listArchived: protectedProcedure.query(({ ctx }) =>
+    listArchivedThoughts(ctx.user.id)
+  ),
+
+  /** Same shape as the ideas router: state, not direction, so undo is trivial. */
+  setArchived: protectedProcedure
+    .input(
+      z.object({ id: z.number().int().positive(), archived: z.boolean() })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const updated = await setThoughtArchived(
+        input.id,
+        ctx.user.id,
+        input.archived
+      );
+      if (!updated) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That thought no longer exists.",
+        });
+      }
+      return { success: true, id: input.id, archived: input.archived } as const;
     }),
 
   restore: protectedProcedure
