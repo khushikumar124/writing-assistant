@@ -20,7 +20,8 @@
     "db:reset": "rm -f data/app.db data/app.db-wal data/app.db-shm && npm run db:migrate",
     "setup": "npm run db:migrate",
     "keys:vapid": "tsx scripts/vapid.ts",
-    "vercel-build": "vite build && esbuild server/serverless.ts --platform=node --packages=external --bundle --format=esm --outfile=api/index.js && tsx scripts/migrate.ts"
+    "vercel-build": "vite build && npm run build:function && tsx scripts/migrate.ts",
+    "build:function": "esbuild server/serverless.ts --platform=node --packages=external --bundle --format=esm --outfile=api/index.js --banner:js=\"// GENERATED from server/serverless.ts by 'npm run build:function'. Committed because Vercel looks for api/index.js before running the build. Do not edit.\""
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",
