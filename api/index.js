@@ -3260,35 +3260,9 @@ async function ensureApp() {
   }
 }
 function bootFailure(res) {
-  const names = [
-    "DATABASE_URL",
-    "SESSION_SECRET",
-    "APP_URL",
-    "CRON_SECRET",
-    "GOOGLE_CLIENT_ID",
-    "GOOGLE_CLIENT_SECRET",
-    "VAPID_PUBLIC_KEY",
-    "VAPID_PRIVATE_KEY",
-    "VAPID_SUBJECT",
-    "NODE_ENV",
-    "PORT"
-  ];
-  const body = [
-    "BOOT FAILURE",
-    `name:    ${initError?.name}`,
-    `message: ${initError?.message}`,
-    "",
-    initError?.stack ?? "(no stack)",
-    "",
-    "environment (names only, never values):",
-    ...names.map((key) => `  ${key}: ${process.env[key] ? "set" : "MISSING"}`),
-    "",
-    `cwd: ${process.cwd()}`,
-    `node: ${process.version}`
-  ].join("\n");
   res.statusCode = 500;
-  res.setHeader("content-type", "text/plain; charset=utf-8");
-  res.end(body);
+  res.setHeader("content-type", "application/json; charset=utf-8");
+  res.end(JSON.stringify({ error: "The server is misconfigured." }));
 }
 async function handler(req, res) {
   await ensureApp();

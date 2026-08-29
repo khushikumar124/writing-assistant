@@ -78,45 +78,17 @@ async function ensureApp(): Promise<void> {
 }
 
 /**
- * TEMPORARY DIAGNOSTIC — remove once the boot failure is identified.
+ * Reports that the app could not be built.
  *
- * Reports the reason the app could not be built. Names of environment
- * variables only, never their values.
+ * The reason goes to the log stream, never to the response: a stack trace
+ * names internal paths and dependency versions, and this endpoint is public.
+ * Uses the raw Node response API rather than Express's, since this path exists
+ * precisely because the Express app is missing.
  */
 function bootFailure(res: ServerResponse): void {
-  const names = [
-    "DATABASE_URL",
-    "SESSION_SECRET",
-    "APP_URL",
-    "CRON_SECRET",
-    "GOOGLE_CLIENT_ID",
-    "GOOGLE_CLIENT_SECRET",
-    "VAPID_PUBLIC_KEY",
-    "VAPID_PRIVATE_KEY",
-    "VAPID_SUBJECT",
-    "NODE_ENV",
-    "PORT",
-  ];
-
-  const body = [
-    "BOOT FAILURE",
-    `name:    ${initError?.name}`,
-    `message: ${initError?.message}`,
-    "",
-    initError?.stack ?? "(no stack)",
-    "",
-    "environment (names only, never values):",
-    ...names.map(key => `  ${key}: ${process.env[key] ? "set" : "MISSING"}`),
-    "",
-    `cwd: ${process.cwd()}`,
-    `node: ${process.version}`,
-  ].join("\n");
-
-  // Raw Node response API, not Express's: this path exists precisely because
-  // the Express app could not be built, so nothing may depend on its helpers.
   res.statusCode = 500;
-  res.setHeader("content-type", "text/plain; charset=utf-8");
-  res.end(body);
+  res.setHeader("content-type", "application/json; charset=utf-8");
+  res.end(JSON.stringify({ error: "The server is misconfigured." }));
 }
 
 export default async function handler(
