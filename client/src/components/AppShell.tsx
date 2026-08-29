@@ -56,7 +56,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
       {/* A sandbox is temporary, and saying so up front is more honest than
           letting someone write for an hour and lose it. */}
       {profile?.demoExpiresAt && (
-        <div className="bg-accent px-4 py-2 text-center text-sm text-accent-foreground">
+        <div
+          data-sandbox-banner
+          className="bg-accent px-4 py-2 text-center text-sm text-accent-foreground"
+        >
           You're in a sandbox — it clears itself{" "}
           {profile.demoExpiresAt.toLocaleDateString(undefined, {
             weekday: "long",
