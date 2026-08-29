@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ServerResponse } from "node:http";
 import type { Express, Request, Response } from "express";
-import type { ShelfMeta } from "../server/publicShelf";
+import type { ShelfMeta } from "./publicShelf";
 
 /**
  * The Vercel entry point.
@@ -53,8 +53,8 @@ async function ensureApp(): Promise<void> {
 
   try {
     const [{ createApp }, { injectShelfMeta }] = await Promise.all([
-      import("../server/app"),
-      import("../server/publicShelf"),
+      import("./app"),
+      import("./publicShelf"),
     ]);
 
     const built = createApp();
