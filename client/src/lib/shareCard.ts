@@ -113,9 +113,7 @@ export function drawShareCard(stats: CardStats): HTMLCanvasElement {
   context.fillStyle = MUTED;
   context.font = "400 24px ui-monospace, 'Courier New', monospace";
   context.fillText(
-    stats.handle
-      ? `writing-assistant · /@${stats.handle}`
-      : "writing-assistant",
+    stats.handle ? `nook · /@${stats.handle}` : "nook",
     left,
     HEIGHT - pad - 44
   );

@@ -1,4 +1,4 @@
-# Writing Assistant
+# Nook
 
 A quiet workspace for people who write around a day job.
 

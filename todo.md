@@ -1,4 +1,4 @@
-# Writing Assistant — status
+# Nook — status
 
 ## Vision
 A quiet space for writers to capture messy thoughts, collect them, and slowly

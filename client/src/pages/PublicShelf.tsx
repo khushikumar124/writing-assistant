@@ -44,7 +44,7 @@ export default function PublicShelf() {
             public.
           </p>
           <Button asChild variant="outline">
-            <Link href="/">Go to Writing Assistant</Link>
+            <Link href="/">Go to Nook</Link>
           </Button>
         </div>
       </Frame>
@@ -127,7 +127,7 @@ function Frame({ children }: { children: React.ReactNode }) {
             className="flex items-center gap-2 hover:text-foreground"
           >
             <Feather className="size-4" aria-hidden />
-            Kept with Writing Assistant
+            Kept with Nook
           </Link>
         </footer>
       </div>

@@ -46,7 +46,7 @@ async function startServer() {
   }
 
   server.listen(ENV.port, () => {
-    console.log(`\n  Writing Assistant → http://localhost:${ENV.port}\n`);
+    console.log(`\n  Nook → http://localhost:${ENV.port}\n`);
     void sweep();
     scheduleReminders();
   });

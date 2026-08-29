@@ -29,7 +29,7 @@ export default function Landing() {
           <div className="flex items-center gap-2">
             <Feather className="size-5 text-primary" aria-hidden />
             <span className="font-semibold tracking-tight text-primary">
-              Writing Assistant
+              Nook
             </span>
           </div>
           <Button asChild variant="ghost" size="sm">

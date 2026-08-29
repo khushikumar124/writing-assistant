@@ -58,7 +58,7 @@ export default function SignIn() {
         <Link href="/" className="mb-8 flex items-center justify-center gap-2">
           <Feather className="size-5 text-primary" aria-hidden />
           <span className="font-semibold tracking-tight text-primary">
-            Writing Assistant
+            Nook
           </span>
         </Link>
 

@@ -1,4 +1,4 @@
-# Writing Assistant Design Brainstorm
+# Nook Design Brainstorm
 
 ## Three Stylistic Approaches
 

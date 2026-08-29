@@ -6,7 +6,7 @@ import { findUserByUsername, listPublishedIdeas } from "./db";
  * The parts of a public shelf that a crawler sees.
  *
  * A single-page app returns the same empty HTML shell for every URL, so a link
- * to someone's shelf posted anywhere unfurls as "Writing Assistant — a calm
+ * to someone's shelf posted anywhere unfurls as "Nook — a calm
  * workspace for writers" with no name, no description and no indication whose
  * shelf it is. That makes the one growth surface in the app useless as a
  * shared link, which is the entire point of it.
@@ -52,6 +52,10 @@ export function mountPublicShelf(app: Express): void {
       .map(piece => {
         // Prefer where it was actually published; fall back to the shelf.
         const link = piece.publishedUrl ?? shelfUrl;
+        // The guid prefix is deliberately still the app's old name. A guid is
+        // a permanent identity rather than a label: changing it would make
+        // every item already sitting in someone's reader look brand new and
+        // re-notify them about posts they read months ago. No human sees it.
         return `    <item>
       <title>${escapeXml(piece.title)}</title>
       <link>${escapeXml(link)}</link>

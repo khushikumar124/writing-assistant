@@ -1,4 +1,4 @@
-# Deploying Writing Assistant
+# Deploying Nook
 
 **Vercel + Neon Postgres, both on free tiers.** No credit card, no monthly bill.
 

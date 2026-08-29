@@ -79,7 +79,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <Link href="/" className="flex shrink-0 items-center gap-2">
             <Feather className="size-5 text-primary" aria-hidden />
             <span className="hidden font-semibold tracking-tight text-primary sm:block">
-              Writing Assistant
+              Nook
             </span>
           </Link>
 
