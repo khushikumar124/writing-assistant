@@ -29,7 +29,7 @@ Sign-in is Google-only, so **without this nobody can use the site** except
 through the sandbox button.
 
 1. [Google Cloud Console](https://console.cloud.google.com/) → create a project.
-2. **APIs & Services → OAuth consent screen.** Choose *External*, fill in the
+2. **APIs & Services → OAuth consent screen.** Choose _External_, fill in the
    app name and your support email.
 3. Scopes: `openid`, `.../auth/userinfo.email`, `.../auth/userinfo.profile`.
    Nothing more — extra scopes trigger a review you don't need.
@@ -42,7 +42,7 @@ through the sandbox button.
    mismatch is the most common cause of `redirect_uri_mismatch`.
 
 **Publish the consent screen before sharing the link.** While it is in
-*Testing*, only accounts you list as test users can sign in — which, for a
+_Testing_, only accounts you list as test users can sign in — which, for a
 Google-only app, means nobody.
 
 ### Vercel — the hosting
@@ -60,17 +60,17 @@ build settings alone.
 Before the first deploy, add the environment variables under
 **Settings → Environment Variables**:
 
-| Variable | Value |
-| --- | --- |
-| `DATABASE_URL` | Neon's **pooled** connection string |
-| `SESSION_SECRET` | `openssl rand -base64 32` |
-| `APP_URL` | `https://YOUR-PROJECT.vercel.app` |
-| `GOOGLE_CLIENT_ID` | from the Google console |
-| `GOOGLE_CLIENT_SECRET` | from the Google console |
-| `CRON_SECRET` | any random string |
-| `VAPID_PUBLIC_KEY` | `npm run keys:vapid` (optional) |
-| `VAPID_PRIVATE_KEY` | same command (optional) |
-| `VAPID_SUBJECT` | `mailto:you@yourdomain.com` (optional) |
+| Variable               | Value                                  |
+| ---------------------- | -------------------------------------- |
+| `DATABASE_URL`         | Neon's **pooled** connection string    |
+| `SESSION_SECRET`       | `openssl rand -base64 32`              |
+| `APP_URL`              | `https://YOUR-PROJECT.vercel.app`      |
+| `GOOGLE_CLIENT_ID`     | from the Google console                |
+| `GOOGLE_CLIENT_SECRET` | from the Google console                |
+| `CRON_SECRET`          | any random string                      |
+| `VAPID_PUBLIC_KEY`     | `npm run keys:vapid` (optional)        |
+| `VAPID_PRIVATE_KEY`    | same command (optional)                |
+| `VAPID_SUBJECT`        | `mailto:you@yourdomain.com` (optional) |
 
 Then deploy. The build runs `vite build` and applies migrations, so there is no
 separate migration step.
@@ -86,9 +86,9 @@ to match, and redeploy.
 **Reminders are coarser.** Vercel's Hobby plan runs cron **once per day, in UTC,
 and may fire anywhere within the scheduled hour**. So:
 
-- *Daily* reminders work, but arrive at roughly 09:00 UTC rather than 09:00
+- _Daily_ reminders work, but arrive at roughly 09:00 UTC rather than 09:00
   where the reader is.
-- *Weekly*, *monthly* and *custom weekday* schedules work, on the right days.
+- _Weekly_, _monthly_ and _custom weekday_ schedules work, on the right days.
 - A user's chosen **time of day is not honoured**. The schedule logic still
   checks it, so a reminder set for 23:00 local simply will not fire on a
   once-daily UTC tick.
@@ -125,7 +125,7 @@ credentials needed to develop.
 ## 5. Before you share the link
 
 - [ ] Google consent screen **published**, not left in Testing
-- [ ] Signed in with a Google account that is *not* yours, to prove it works
+- [ ] Signed in with a Google account that is _not_ yours, to prove it works
 - [ ] `APP_URL` matches the deployed URL, and the redirect URI matches it exactly
 - [ ] A shelf link pasted somewhere, to confirm it unfurls with a real title
 - [ ] Account deletion tried once on a throwaway account

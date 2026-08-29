@@ -12,13 +12,13 @@ drafts to make recommendations.
 
 ## The loop
 
-| Layer | What it does |
-| --- | --- |
-| **Capture** | ⌘K from any page, the OS share sheet on mobile, and offline — captures queue locally and sync when you reconnect. |
-| **Forge** | Select several scattered thoughts and merge them into one idea. They stay linked and sit beside you in the editor as raw material. |
-| **Shape** | A distraction-free editor with autosave, word count, and a thought rail you can insert from. |
-| **Habit** | Streaks counted from words actually added, not from saves. |
-| **Ship** | Mark a piece published with its link and date. It lands on your shelf, optionally public at `/@handle`. |
+| Layer       | What it does                                                                                                                       |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Capture** | ⌘K from any page, the OS share sheet on mobile, and offline — captures queue locally and sync when you reconnect.                  |
+| **Forge**   | Select several scattered thoughts and merge them into one idea. They stay linked and sit beside you in the editor as raw material. |
+| **Shape**   | A distraction-free editor with autosave, word count, and a thought rail you can insert from.                                       |
+| **Habit**   | Streaks counted from words actually added, not from saves.                                                                         |
+| **Ship**    | Mark a piece published with its link and date. It lands on your shelf, optionally public at `/@handle`.                            |
 
 ## Running it
 
@@ -39,17 +39,17 @@ you out.
 
 ## Commands
 
-| Command | Does |
-| --- | --- |
-| `npm run dev` | Dev server, API and client on one origin |
-| `npm run build` | Builds the client and bundles the server to `dist/` |
-| `npm start` | Runs the production build |
-| `npm test` | Vitest |
-| `npm run check` | TypeScript, no emit |
-| `npm run db:generate` | Generates a migration from schema changes |
-| `npm run db:migrate` | Applies migrations |
-| `npm run db:reset` | Drops the database and re-migrates |
-| `npm run keys:vapid` | Generates Web Push keys for reminders |
+| Command               | Does                                                |
+| --------------------- | --------------------------------------------------- |
+| `npm run dev`         | Dev server, API and client on one origin            |
+| `npm run build`       | Builds the client and bundles the server to `dist/` |
+| `npm start`           | Runs the production build                           |
+| `npm test`            | Vitest                                              |
+| `npm run check`       | TypeScript, no emit                                 |
+| `npm run db:generate` | Generates a migration from schema changes           |
+| `npm run db:migrate`  | Applies migrations                                  |
+| `npm run db:reset`    | Drops the database and re-migrates                  |
+| `npm run keys:vapid`  | Generates Web Push keys for reminders               |
 
 ## Architecture
 
@@ -75,7 +75,7 @@ you out.
   a writer's own additions hit the `prompts` table.
 - **Streaks are counted in the reader's timezone.** The browser sends its IANA
   zone; the server buckets session timestamps with it. SQLite's `localtime`
-  would use the *server's* zone, which credits a late-night session in Delhi to
+  would use the _server's_ zone, which credits a late-night session in Delhi to
   the wrong day.
 - **Account deletion is a real erasure**, not a soft delete — the row goes and
   every table cascades. The export in Settings exists so that is not a
@@ -111,18 +111,18 @@ app without configuring Google at all. That is the intended dev login.
 Full walkthrough in [DEPLOY.md](DEPLOY.md) — including the Google Cloud console
 steps, which only you can do.
 
-
-Needs a persistent filesystem for the SQLite file — Fly.io with a volume,
-Railway, or any VPS. It will not work on a serverless platform without moving
-to a hosted database first.
+Runs on Vercel's free tier against a free Neon Postgres database. The client is
+served as static files; the API, OAuth and cron run as one serverless function.
 
 Required in production:
 
+- `DATABASE_URL` — Neon's pooled connection string
 - `SESSION_SECRET` — the server refuses to start without it
-- `APP_URL` — so links in password reset emails point somewhere real
-- `RESEND_API_KEY` — otherwise reset emails are logged to the console and
-  nobody who forgets a password can get back in
-- A volume mounted wherever `DATABASE_URL` points
+- `APP_URL` — the Google redirect URI is built from it, so it must match what
+  you registered in the Google console exactly
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` — without them nobody can sign
+  in, since Google is the only way into an account
+- `CRON_SECRET` — guards the scheduled endpoints, which refuse to run without it
 
 Consider `DEMO_MODE=false` if you don't want anonymous visitors creating
 sandbox accounts.

@@ -23,6 +23,27 @@ const { appRouter } = await import("../routers");
 
 await migrateToLatest();
 
+/**
+ * Empty the database before the suite runs.
+ *
+ * Postgres keeps its tables between runs, unlike the SQLite file this used to
+ * use, so rows left by the last run are still here. Most tests tolerate that
+ * because they mint uniquely-named users, but anything claiming a globally
+ * unique value — a shelf handle — collides with its own previous run and fails
+ * on the second invocation only. Truncating makes every run start identically.
+ */
+const { sql } = await import("drizzle-orm");
+const tables = await db.getDb().execute<{ tablename: string }>(
+  sql`SELECT tablename FROM pg_tables
+      WHERE schemaname = 'public' AND tablename <> '__drizzle_migrations'`
+);
+if (tables.length > 0) {
+  const list = tables.map(row => `"${row.tablename}"`).join(", ");
+  await db
+    .getDb()
+    .execute(sql.raw(`TRUNCATE ${list} RESTART IDENTITY CASCADE`));
+}
+
 /** A caller acting as `userId`, with the cookie plumbing stubbed out. */
 function callerFor(userId: number) {
   return appRouter.createCaller({
