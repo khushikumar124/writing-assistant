@@ -1,40 +1,12 @@
 {
   "version": "7",
-  "dialect": "sqlite",
+  "dialect": "postgresql",
   "entries": [
     {
       "idx": 0,
-      "version": "6",
-      "when": 1785667412444,
-      "tag": "0000_condemned_albert_cleary",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1785932054268,
-      "tag": "0001_lumpy_stranger",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1787859419285,
-      "tag": "0002_damp_pet_avengers",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1787860964696,
-      "tag": "0003_cultured_amphibian",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1787879609429,
-      "tag": "0004_nostalgic_outlaw_kid",
+      "version": "7",
+      "when": 1787962202469,
+      "tag": "0000_concerned_nighthawk",
       "breakpoints": true
     }
   ]

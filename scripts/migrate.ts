@@ -1,9 +1,9 @@
 import "dotenv/config";
-import { migrateToLatest } from "../server/migrate";
+import { closeDb, migrateToLatest } from "../server/migrate";
 
 /**
- * Standalone migration runner, kept for `npm run db:migrate` and for platforms
- * that prefer a release command. The server also migrates on boot, so this is
- * a convenience rather than a requirement.
+ * Deploy-time migration runner. Vercel runs this as part of the build, and it
+ * is the only place migrations are applied.
  */
 await migrateToLatest();
+await closeDb();

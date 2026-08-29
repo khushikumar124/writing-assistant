@@ -1,254 +1,146 @@
 # Deploying Writing Assistant
 
-The app is a single Node process serving both the API and the built client, with
-SQLite on a local disk. That shapes every choice below.
+**Vercel + Neon Postgres, both on free tiers.** No credit card, no monthly bill.
 
-**It needs a persistent filesystem.** Fly.io with a volume, Railway, Render with
-a disk, or any VPS. It will *not* work on Vercel, Netlify, or Cloudflare Workers
-without first moving to a hosted database — those platforms give each request a
-fresh filesystem, so the database would vanish continuously.
-
-**Run exactly one instance.** Two machines means two volumes means two divergent
-databases, and nothing will warn you. `fly.toml` pins this deliberately.
+The app is a React SPA plus an Express API that runs as a single Vercel
+serverless function, against a hosted Postgres database.
 
 ---
 
 ## 1. Things only you can do
 
-These need accounts in your name. Nobody else can create them for you.
+Three accounts, all free, all in your name.
 
-### Required
+### Neon — the database
 
-- **A host account** — [fly.io](https://fly.io) is assumed below. `fly.toml`
-  deploys to **US East (`iad`)**, the usual compromise for a worldwide
-  audience. The volume must be created in the *same* region or the machine will
-  not start. If most of your users end up in one place, see "Picking a region"
-  below.
-- **A session secret** — generate it locally:
-  ```bash
-  openssl rand -base64 32
-  ```
-  The server refuses to start in production without one. It signs session
-  cookies: change it later and every user is logged out at once.
+1. Sign up at [neon.com](https://neon.com). No card required.
+2. Create a project. Any region — pick one near you.
+3. Copy the **pooled** connection string: the one whose host contains
+   `-pooler`. Serverless opens a connection per invocation, and the pooler is
+   what stops that exhausting the database.
 
-### For "Continue with Google"
+Free tier: 0.5GB storage, 100 compute-hours/month, permanent. The compute
+suspends after five minutes idle and wakes on the next query, which adds a
+fraction of a second to the first request after a quiet spell.
 
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/) → create
-   a project.
+### Google — sign-in
+
+Sign-in is Google-only, so **without this nobody can use the site** except
+through the sandbox button.
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → create a project.
 2. **APIs & Services → OAuth consent screen.** Choose *External*, fill in the
-   app name, your support email, and a logo if you have one.
-3. Add scopes `openid`, `.../auth/userinfo.email`, `.../auth/userinfo.profile`.
-   Nothing more — extra scopes trigger a Google review you don't need.
+   app name and your support email.
+3. Scopes: `openid`, `.../auth/userinfo.email`, `.../auth/userinfo.profile`.
+   Nothing more — extra scopes trigger a review you don't need.
 4. **Credentials → Create credentials → OAuth client ID → Web application.**
-5. Under *Authorised redirect URIs*, add **exactly**:
+5. Authorised redirect URI, exactly:
    ```
-   https://YOUR-DOMAIN/api/auth/google/callback
+   https://YOUR-PROJECT.vercel.app/api/auth/google/callback
    ```
-   This must match `APP_URL` character for character, including `https://` and
-   no trailing slash. A mismatch is the single most common cause of
-   `redirect_uri_mismatch`.
-6. Copy the client ID and client secret.
+   Character for character, including `https://` and no trailing slash. A
+   mismatch is the most common cause of `redirect_uri_mismatch`.
 
-**Publish the consent screen before you share the link.** While it is in
-*Testing*, only Google accounts you have explicitly added as test users can sign
-in — everyone else gets an error, which for a Google-only app means nobody can
-use the site. Publishing is a button in the console; with only the three scopes
-above, Google does not require a verification review.
+**Publish the consent screen before sharing the link.** While it is in
+*Testing*, only accounts you list as test users can sign in — which, for a
+Google-only app, means nobody.
 
-There is no email provider to set up: the app sends no mail. Google is the
-only way to sign in, so there are no passwords to reset.
+### Vercel — the hosting
 
-### For reminders (optional)
-
-Generate a Web Push key pair once:
-
-```bash
-npm run keys:vapid
-```
-
-Set the three values it prints. **Never regenerate them on a live deploy** —
-every existing subscription is signed against the old public key and would
-silently stop being delivered. Without them the reminder settings show as
-unavailable and nothing is scheduled; everything else works.
+Sign up at [vercel.com](https://vercel.com) with your GitHub account.
 
 ---
 
-## 2. Deploy to Fly
+## 2. Deploy
 
-```bash
-brew install flyctl && fly auth login
-```
+Push this repository to GitHub, then on Vercel: **Add New → Project → import
+it**. The framework preset should be detected from `vercel.json`; leave the
+build settings alone.
 
-From the project root:
+Before the first deploy, add the environment variables under
+**Settings → Environment Variables**:
 
-```bash
-fly launch --no-deploy
-```
+| Variable | Value |
+| --- | --- |
+| `DATABASE_URL` | Neon's **pooled** connection string |
+| `SESSION_SECRET` | `openssl rand -base64 32` |
+| `APP_URL` | `https://YOUR-PROJECT.vercel.app` |
+| `GOOGLE_CLIENT_ID` | from the Google console |
+| `GOOGLE_CLIENT_SECRET` | from the Google console |
+| `CRON_SECRET` | any random string |
+| `VAPID_PUBLIC_KEY` | `npm run keys:vapid` (optional) |
+| `VAPID_PRIVATE_KEY` | same command (optional) |
+| `VAPID_SUBJECT` | `mailto:you@yourdomain.com` (optional) |
 
-When it offers to overwrite `fly.toml`, **say no** — the volume mount and
-single-machine settings in the committed file are load-bearing.
+Then deploy. The build runs `vite build` and applies migrations, so there is no
+separate migration step.
 
-Create the volume the database lives on (size it generously; text is small but
-growing a volume later is more annoying than paying for 3GB now):
-
-```bash
-fly volumes create writing_data --size 3 --region iad
-```
-
-Set the secrets:
-
-```bash
-fly secrets set \
-  SESSION_SECRET="paste-the-openssl-output" \
-  APP_URL="https://your-app.fly.dev" \
-  GOOGLE_CLIENT_ID="...apps.googleusercontent.com" \
-  GOOGLE_CLIENT_SECRET="..."
-```
-
-Then:
-
-```bash
-fly deploy
-```
-
-Migrations run automatically at boot, so there is no separate migrate step.
-
-### A custom domain
-
-```bash
-fly certs add yourdomain.com
-```
-
-Follow the DNS records it prints. Then **update two things or sign-in breaks**:
-
-1. `fly secrets set APP_URL="https://yourdomain.com"`
-2. Add `https://yourdomain.com/api/auth/google/callback` to the authorised
-   redirect URIs in the Google console.
-
-### Picking a region
-
-The app runs as one machine, so every request from everywhere travels to that
-one place. Rough round trips from `iad` (US East): ~20ms east coast US, ~90ms
-west coast, ~90ms western Europe, ~230ms India, ~250ms Australia.
-
-Alternatives: `fra` Frankfurt, `lhr` London, `sin` Singapore, `bom` Mumbai,
-`syd` Sydney. Moving later means creating a volume in the new region and
-copying `app.db` across — doable, but not a one-liner, so it is worth a moment
-of thought now.
-
-Genuinely global low latency needs read replicas (Fly's LiteFS) or a hosted
-database, and neither is worth it before you have users in several continents
-complaining.
+`APP_URL` is a chicken-and-egg: you need the deployed URL to set it. Deploy
+once, copy the URL Vercel gives you, set `APP_URL` and the Google redirect URI
+to match, and redeploy.
 
 ---
 
-## 3. Environment variables
+## 3. What serverless costs you
 
-| Variable | Required | What happens without it |
-| --- | --- | --- |
-| `SESSION_SECRET` | **Yes** | Server refuses to start |
-| `APP_URL` | **Yes** in prod | OAuth callback and email links point at localhost |
-| `DATABASE_URL` | Set in `fly.toml` | Defaults to `./data/app.db`, which is *not* on the volume |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | **Yes** in practice | No way to sign in; only the sandbox button works |
-| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | No | Reminders show as unavailable |
-| `DEMO_MODE` | No | Set `false` to remove the sandbox button |
-| `PORT` | No | Defaults to 3000 |
+**Reminders are coarser.** Vercel's Hobby plan runs cron **once per day, in UTC,
+and may fire anywhere within the scheduled hour**. So:
 
----
+- *Daily* reminders work, but arrive at roughly 09:00 UTC rather than 09:00
+  where the reader is.
+- *Weekly*, *monthly* and *custom weekday* schedules work, on the right days.
+- A user's chosen **time of day is not honoured**. The schedule logic still
+  checks it, so a reminder set for 23:00 local simply will not fire on a
+  once-daily UTC tick.
 
-## 4. Testing the image locally
+If precise reminder times matter more than the hosting bill, that needs an
+always-on process — a small VM, or Vercel's paid plan for finer cron.
 
-Run it against a real Docker volume, never a bind mount from macOS or Windows:
-
-```bash
-docker volume create wa-data
-docker run --rm -p 3000:3000 -v wa-data:/data \
-  -e SESSION_SECRET="$(openssl rand -base64 32)" \
-  -e APP_URL="http://localhost:3000" \
-  writing-assistant:test
-```
-
-Mounting a host folder (`-v ./data:/data`) looks like it works — the app starts,
-writes land — but SQLite in WAL mode needs POSIX file locking that Docker
-Desktop's macOS/Windows file sharing does not reproduce faithfully. Writes are
-reported as successful and then quietly fail to materialise. It cost an hour of
-chasing a deletion "bug" that did not exist. Fly volumes are real block devices,
-so this affects local testing only.
+**No local disk.** Backups are Neon's problem now, which is an improvement:
+their free tier keeps point-in-time history, and the old file-copy backups are
+gone from the codebase.
 
 ---
 
-## 5. Backups
+## 4. Running it locally
 
-The app takes its own snapshot on boot and daily, keeping seven in
-`/data/backups` — that covers a bad migration or a delete gone wrong, but not
-losing the volume itself, so pulling one off the machine is still worth doing.
-
-Fly volumes get daily snapshots, but a snapshot is not a backup you have tested.
-For a text database this is small enough to just pull down:
+You need a Postgres. Either point `DATABASE_URL` at your Neon database (simple,
+but development shares production data — fine before launch, bad after), or run
+one locally:
 
 ```bash
-fly ssh console -C "cat /data/app.db" > backup-$(date +%F).db
+brew install postgresql@16 && brew services start postgresql@16
+createdb writing
 ```
-
-Do this before any deploy that includes a migration. SQLite in WAL mode may keep
-recent writes in `app.db-wal`; for a consistent copy use:
 
 ```bash
-fly ssh console -C "sqlite3 /data/app.db '.backup /data/backup.db'"
-fly ssh sftp get /data/backup.db
+npm install && npm run db:migrate && npm run dev
 ```
+
+Click **Try it without an account** for a sandbox with sample writing; no Google
+credentials needed to develop.
 
 ---
 
-## 6. Before you invite real users
+## 5. Before you share the link
 
-- [ ] `SESSION_SECRET` set, and different from anything in `.env`
-- [ ] `APP_URL` matches the real domain
-- [ ] Google redirect URI matches `APP_URL` exactly
 - [ ] Google consent screen **published**, not left in Testing
-- [ ] Signed in with a Google account that is *not* yours, to prove it
-- [ ] Volume mounted — confirm with `fly ssh console -C "ls -la /data"`
-- [ ] A backup taken and *restored somewhere* to prove it works
-- [ ] Decide on `DEMO_MODE`: sandboxes are unauthenticated writes to your disk
-- [ ] Privacy note somewhere, since you now hold other people's unpublished work
-- [ ] Account deletion tried once on a throwaway account
-- [ ] If reminders are on: a test notification actually arrived
+- [ ] Signed in with a Google account that is *not* yours, to prove it works
+- [ ] `APP_URL` matches the deployed URL, and the redirect URI matches it exactly
 - [ ] A shelf link pasted somewhere, to confirm it unfurls with a real title
+- [ ] Account deletion tried once on a throwaway account
+- [ ] Decide on `DEMO_MODE`: sandboxes are unauthenticated writes to your database
 
 ---
 
-## Notes on what is not here
+## Notes
 
-**Phone-number sign-in.** Deliberately not built, and the barrier is higher in
-India than almost anywhere else.
+**Why not SQLite.** The app used to run SQLite on a mounted disk, which needs a
+host with a persistent filesystem — Fly, Railway, a VPS — and those cost money.
+Vercel gives each request a fresh filesystem, so the database had to move
+off-disk. That is the whole reason for the Postgres migration.
 
-Sending application-to-person SMS to Indian numbers requires **TRAI DLT
-registration**: you register as a Principal Entity on a telecom operator's DLT
-portal (Jio, Airtel, Vi, BSNL), then separately register your sender header and
-*every message template*, each of which is reviewed before it can send. It
-generally expects business documentation — GST or company PAN rather than a
-personal one — plus a registration fee and a wait measured in days to weeks.
-Unregistered traffic to Indian numbers is filtered by the operators, so this is
-not a step that can be skipped.
-
-The way around doing that yourself is a hosted identity provider that owns the
-DLT relationship — Firebase Authentication being the obvious one — at a
-per-verification cost and the price of a new dependency in the auth path.
-Confirm current India pricing before committing; SMS pumping fraud has made
-Indian verification traffic expensive and the terms move.
-
-None of that is worth it here. This is a tool people use at a keyboard, and
-Google sign-in already delivers the "no new password to remember" convenience
-for free, with the highest Android share of any large market behind it. If it
-ever becomes necessary, the shape is a `phone` column plus a one-time-code
-table, and the existing rate limiter already has suitable buckets.
-
-**Data protection (India).** Holding other people's unpublished writing brings
-the DPDP Act 2023 into scope for Indian users. The main practical gaps today are
-a published privacy notice and a self-service "delete my account" that actually
-erases rather than soft-deletes. Worth closing before you promote this widely.
-
-**Scaling past one machine.** The moment you want two, SQLite has to go. The
-migration path is Postgres (Neon, Supabase, or Fly Postgres): Drizzle's query
-builder mostly survives, but `server/db.ts` and every migration would be
-rewritten. Don't do it before you need it.
+**Scaling.** Neon's free tier suspends after five minutes idle; the first
+request after that pays a small wake-up cost. If the project ever outgrows
+0.5GB or 100 compute-hours a month, that is a paid-tier conversation, not a
+re-architecture.

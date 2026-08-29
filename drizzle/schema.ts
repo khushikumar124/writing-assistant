@@ -1,5 +1,13 @@
-import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  boolean,
+  index,
+  integer,
+  pgTable,
+  serial,
+  text,
+  timestamp as pgTimestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import {
   IDEA_STATUSES,
   PLATFORMS,
@@ -22,29 +30,24 @@ export {
 } from "../shared/domain";
 
 /**
- * Timestamps are stored as Unix epoch seconds and surfaced as `Date` objects.
- * SQLite has no native date type, so this keeps sorting cheap and types honest.
+ * Postgres has a real timestamp type, so these are stored with a timezone
+ * rather than as epoch integers. Drizzle still surfaces them as `Date`, which
+ * is what every call site already expects.
  */
-const timestamp = (name: string) => integer(name, { mode: "timestamp" });
+const timestamp = (name: string) => pgTimestamp(name, { withTimezone: true });
 
-const createdAt = () =>
-  timestamp("createdAt")
-    .notNull()
-    .default(sql`(unixepoch())`);
+const createdAt = () => timestamp("createdAt").notNull().defaultNow();
 
-const updatedAt = () =>
-  timestamp("updatedAt")
-    .notNull()
-    .default(sql`(unixepoch())`);
+const updatedAt = () => timestamp("updatedAt").notNull().defaultNow();
 
 /**
  * Accounts. Sign-in is Google only — there is no password anywhere in this
  * schema, which also means there is no password to leak.
  */
-export const users = sqliteTable(
+export const users = pgTable(
   "users",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     email: text("email").notNull(),
     /** Google's stable subject id. The only way into an account. */
     googleId: text("googleId"),
@@ -57,7 +60,7 @@ export const users = sqliteTable(
      */
     username: text("username"),
     /** Opt-in: nothing is readable by strangers unless this is explicitly on. */
-    publicProfile: integer("publicProfile", { mode: "boolean" }).notNull().default(false),
+    publicProfile: boolean("publicProfile").notNull().default(false),
     bio: text("bio"),
     /**
      * Set on throwaway sandbox accounts handed out by the demo button. A row
@@ -84,10 +87,10 @@ export type PublicUser = User;
 /**
  * Writing ideas. The centre of the data model: everything else hangs off these.
  */
-export const ideas = sqliteTable(
+export const ideas = pgTable(
   "ideas",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     userId: integer("userId")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -122,10 +125,10 @@ export type Idea = typeof ideas.$inferSelect;
 export type InsertIdea = typeof ideas.$inferInsert;
 
 /** Links and notes gathered while researching an idea. */
-export const research = sqliteTable(
+export const research = pgTable(
   "research",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     ideaId: integer("ideaId")
       .notNull()
       .references(() => ideas.id, { onDelete: "cascade" }),
@@ -148,10 +151,10 @@ export type InsertResearch = typeof research.$inferInsert;
  * Categories are user-defined rather than a fixed enum, so someone writing about
  * both distributed systems and beekeeping isn't forced into preset buckets.
  */
-export const userCategories = sqliteTable(
+export const userCategories = pgTable(
   "userCategories",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     userId: integer("userId")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -162,22 +165,24 @@ export const userCategories = sqliteTable(
     sortOrder: integer("sortOrder").notNull().default(0),
     createdAt: createdAt(),
   },
-  table => [uniqueIndex("userCategories_user_name_unique").on(table.userId, table.name)]
+  table => [
+    uniqueIndex("userCategories_user_name_unique").on(table.userId, table.name),
+  ]
 );
 
 export type UserCategory = typeof userCategories.$inferSelect;
 export type InsertUserCategory = typeof userCategories.$inferInsert;
 
 /** Per-user settings, one row per user. */
-export const userPreferences = sqliteTable("userPreferences", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const userPreferences = pgTable("userPreferences", {
+  id: serial("id").primaryKey(),
   userId: integer("userId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  defaultPlatform: text("defaultPlatform", { enum: PLATFORMS }).notNull().default("both"),
-  onboardingCompleted: integer("onboardingCompleted", { mode: "boolean" })
+  defaultPlatform: text("defaultPlatform", { enum: PLATFORMS })
     .notNull()
-    .default(false),
+    .default("both"),
+  onboardingCompleted: boolean("onboardingCompleted").notNull().default(false),
 
   /**
    * A daily words target. 0 means "not set", which is the default — a goal
@@ -206,10 +211,10 @@ export type UserPreference = typeof userPreferences.$inferSelect;
 export type InsertUserPreference = typeof userPreferences.$inferInsert;
 
 /** The actual prose. One draft per idea, autosaved from the editor. */
-export const drafts = sqliteTable(
+export const drafts = pgTable(
   "drafts",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     userId: integer("userId")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -220,9 +225,7 @@ export const drafts = sqliteTable(
     wordCount: integer("wordCount").notNull().default(0),
     characterCount: integer("characterCount").notNull().default(0),
     platform: text("platform", { enum: PLATFORMS }).notNull().default("both"),
-    lastSavedAt: timestamp("lastSavedAt")
-      .notNull()
-      .default(sql`(unixepoch())`),
+    lastSavedAt: timestamp("lastSavedAt").notNull().defaultNow(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -236,10 +239,10 @@ export type InsertDraft = typeof drafts.$inferInsert;
  * The capture layer: half-formed thoughts, dumped fast and sorted later.
  * A thought can be promoted into a full idea via `linkedIdeaId`.
  */
-export const rawThoughts = sqliteTable(
+export const rawThoughts = pgTable(
   "rawThoughts",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     userId: integer("userId")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -263,17 +266,17 @@ export type InsertRawThought = typeof rawThoughts.$inferInsert;
 /**
  * Writing sessions power the streak and "last wrote N days ago" indicators.
  */
-export const writingSessions = sqliteTable(
+export const writingSessions = pgTable(
   "writingSessions",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     userId: integer("userId")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    ideaId: integer("ideaId").references(() => ideas.id, { onDelete: "set null" }),
-    startedAt: timestamp("startedAt")
-      .notNull()
-      .default(sql`(unixepoch())`),
+    ideaId: integer("ideaId").references(() => ideas.id, {
+      onDelete: "set null",
+    }),
+    startedAt: timestamp("startedAt").notNull().defaultNow(),
     endedAt: timestamp("endedAt"),
     wordsWritten: integer("wordsWritten").notNull().default(0),
     createdAt: createdAt(),
@@ -284,16 +287,17 @@ export const writingSessions = sqliteTable(
 export type WritingSession = typeof writingSessions.$inferSelect;
 export type InsertWritingSession = typeof writingSessions.$inferInsert;
 
-
 /**
  * The prompt library behind Discover. A null `userId` marks a curated prompt
  * shared by everyone; a set one is a prompt the writer added themselves.
  */
-export const prompts = sqliteTable(
+export const prompts = pgTable(
   "prompts",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    userId: integer("userId").references(() => users.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").references(() => users.id, {
+      onDelete: "cascade",
+    }),
     text: text("text").notNull(),
     /** Loose grouping — "reflection", "technical", "short". Not an enum, on purpose. */
     kind: text("kind").notNull().default("general"),
@@ -311,10 +315,10 @@ export type Prompt = typeof prompts.$inferSelect;
  * worker, and because it means no mail provider, no deliverability problem and
  * no address to store beyond what Google already gave us.
  */
-export const pushSubscriptions = sqliteTable(
+export const pushSubscriptions = pgTable(
   "pushSubscriptions",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     userId: integer("userId")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),

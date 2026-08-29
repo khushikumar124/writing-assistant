@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { writingSessions } from "../drizzle/schema";
 import {
-  getRawDb,
   createCategory,
   createIdea,
   createThought,
@@ -175,30 +174,15 @@ function daysAgo(days: number, hour = 9): Date {
 }
 
 /**
- * Fills an account with sample writing. Used both by the sandbox button and by
- * `npm run db:seed`, so the two can never drift apart.
+ * Fills an account with sample writing.
+ *
+ * These inserts run one at a time rather than inside a transaction. Wrapping
+ * them would need every helper below to accept a transaction handle, and the
+ * failure it would guard against is mild: a half-seeded sandbox that expires
+ * on its own within a day. Not worth threading a parameter through the data
+ * layer for.
  */
 export async function seedSandbox(userId: number): Promise<void> {
-  /**
-   * One transaction for the whole seed.
-   *
-   * better-sqlite3 is synchronous, so the ~25 inserts below were each landing
-   * in their own implicit transaction — twenty-five fsyncs for one button
-   * press. Wrapping them makes the sandbox button feel instant instead of
-   * merely quick, and means a failure halfway leaves no half-seeded account.
-   */
-  const raw = getRawDb();
-  raw.exec("BEGIN");
-  try {
-    await seedContent(userId);
-    raw.exec("COMMIT");
-  } catch (error) {
-    raw.exec("ROLLBACK");
-    throw error;
-  }
-}
-
-async function seedContent(userId: number): Promise<void> {
   await getPreferences(userId);
   await updatePreferences(userId, {
     onboardingCompleted: true,

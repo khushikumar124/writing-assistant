@@ -26,6 +26,9 @@ drafts to make recommendations.
 npm install && npm run setup && npm run dev
 ```
 
+Needs a Postgres — `brew install postgresql@16 && brew services start
+postgresql@16 && createdb writing`, then put its URL in `.env`.
+
 `npm run setup` applies migrations. The app is then at http://localhost:3000 —
 click **Try it without an account** for a sandbox pre-filled with sample
 writing. No Google credentials needed to develop.
@@ -52,7 +55,7 @@ you out.
 
 - **Client** — React 19, wouter, TanStack Query, Tailwind v4, shadcn/ui
 - **API** — tRPC over Express, one origin, session in an httpOnly cookie
-- **Data** — SQLite via Drizzle (WAL, foreign keys on)
+- **Data** — Postgres via Drizzle, hosted on Neon
 - **Shared** — `shared/` holds domain vocabulary, streak maths, and the prompt
   library, imported by both sides without dragging Drizzle into the browser
 

@@ -24,11 +24,25 @@ function resolveSessionSecret(): string {
   return crypto.randomBytes(32).toString("base64");
 }
 
+function resolveDatabaseUrl(): string {
+  const url = process.env.DATABASE_URL?.trim();
+  if (!url) {
+    throw new Error(
+      "DATABASE_URL is required. Create a free Postgres database at neon.com and put its pooled connection string in .env"
+    );
+  }
+  return url;
+}
+
 export const ENV = {
   isProduction,
   port: Number.parseInt(process.env.PORT ?? "3000", 10),
-  /** Path to the SQLite database file, relative to the project root. */
-  databaseFile: process.env.DATABASE_URL ?? "./data/app.db",
+  /**
+   * Postgres connection string. Required everywhere — there is no local file
+   * fallback, because silently writing to a different database than production
+   * is a worse failure than refusing to start.
+   */
+  databaseUrl: resolveDatabaseUrl(),
   sessionSecret: resolveSessionSecret(),
   /**
    * Enables the "Try it without an account" button. Each click mints a private,
@@ -53,6 +67,11 @@ export const ENV = {
   vapidPrivateKey: process.env.VAPID_PRIVATE_KEY?.trim() || null,
   /** Contact address push services can use to reach the operator. */
   vapidSubject: process.env.VAPID_SUBJECT?.trim() || "mailto:hello@example.com",
+  /**
+   * Shared secret the platform's scheduler presents when calling /api/cron/*.
+   * Vercel sets this header automatically when the variable is configured.
+   */
+  cronSecret: process.env.CRON_SECRET?.trim() || null,
 } as const;
 
 /** True when both Google credentials are configured. */

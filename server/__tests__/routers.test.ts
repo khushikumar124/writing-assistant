@@ -8,9 +8,12 @@ import { beforeEach, describe, expect, it } from "vitest";
  * ownership checks, cascade behaviour, and validation. A mocked db would have
  * happily passed while leaking another account's writing.
  *
- * A fresh temp file per run, so the tests never touch the dev database.
+ * Points at a separate `writing_test` database so the tests never touch the
+ * one used for development.
  */
-process.env.DATABASE_URL = `/tmp/wa-test-${process.pid}.db`;
+process.env.DATABASE_URL =
+  process.env.TEST_DATABASE_URL ??
+  `postgres://${process.env.USER}@localhost:5432/writing_test`;
 process.env.SESSION_SECRET = "test-secret";
 process.env.DEMO_MODE = "true";
 
@@ -236,8 +239,9 @@ describe("account deletion", () => {
     await caller.account.delete({ confirmation: user!.email });
 
     expect(await db.findUserById(alice)).toBeUndefined();
-    // Cascades leave nothing orphaned.
-    expect(db.getRawDb().pragma("foreign_key_check")).toEqual([]);
+    // Postgres enforces the cascade itself, so the check is that the writing
+    // actually went with the account rather than being orphaned.
+    expect(await db.listWritingSessionTimes(alice)).toHaveLength(0);
   });
 });
 

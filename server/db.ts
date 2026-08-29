@@ -1,4 +1,3 @@
-import Database from "better-sqlite3";
 import {
   and,
   asc,
@@ -12,9 +11,8 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import fs from "node:fs";
-import path from "node:path";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import {
   drafts,
   ideas,
@@ -47,38 +45,40 @@ export const schema = {
   pushSubscriptions,
 };
 
-let cached: ReturnType<typeof createDb> | null = null;
-let cachedRaw: Database.Database | null = null;
+let cached: ReturnType<typeof drizzle> | null = null;
+let cachedClient: ReturnType<typeof postgres> | null = null;
 
-function createDb(file: string) {
-  const absolute = path.resolve(file);
-  fs.mkdirSync(path.dirname(absolute), { recursive: true });
+/**
+ * One Postgres client per process.
+ *
+ * `max: 1` because this runs as a serverless function: every concurrent
+ * invocation is its own process, so a large pool per instance multiplies into
+ * far more connections than the database will accept. Neon's pooled connection
+ * string does the actual pooling on their side.
+ */
+function createClient() {
+  return postgres(ENV.databaseUrl, {
+    max: 1,
+    idle_timeout: 20,
+    connect_timeout: 10,
+    /**
+     * Hosted Postgres requires TLS; a local container has none. Decided from
+     * the connection string so the same code runs in both without a flag.
+     */
+    ssl: /sslmode=require|neon\.tech|supabase|amazonaws/.test(ENV.databaseUrl)
+      ? "require"
+      : false,
+  });
+}
 
-  const sqlite = new Database(absolute);
-  // WAL gives us concurrent reads during writes; foreign keys are off by
-  // default in SQLite and our cascades depend on them.
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("foreign_keys = ON");
-
-  cachedRaw = sqlite;
-  return drizzle(sqlite, { schema });
+export function getClient() {
+  if (!cachedClient) cachedClient = createClient();
+  return cachedClient;
 }
 
 export function getDb() {
-  if (!cached) {
-    cached = createDb(ENV.databaseFile);
-  }
+  if (!cached) cached = drizzle(getClient(), { schema });
   return cached;
-}
-
-/**
- * The underlying better-sqlite3 handle. Needed only by the migrator, which has
- * to toggle `foreign_keys` — a pragma SQLite silently ignores inside a
- * transaction, so it cannot be done through Drizzle.
- */
-export function getRawDb(): Database.Database {
-  getDb();
-  return cachedRaw!;
 }
 
 /**
