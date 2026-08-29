@@ -764,6 +764,16 @@ async function updateCategory(categoryId, userId, updates) {
   ).returning();
   return updated ?? null;
 }
+async function countIdeasInCategory(userId, name) {
+  const [row] = await getDb().select({ count: count() }).from(ideas).where(
+    and(
+      eq(ideas.userId, userId),
+      eq(ideas.category, name),
+      isNull(ideas.deletedAt)
+    )
+  );
+  return row?.count ?? 0;
+}
 async function deleteCategory(categoryId, userId) {
   const deleted = await getDb().delete(userCategories).where(
     and(eq(userCategories.id, categoryId), eq(userCategories.userId, userId))
@@ -2142,6 +2152,23 @@ var init_categories = __esm({
     hexColor = z2.string().regex(/^#[0-9a-f]{6}$/i, "Use a hex colour like #0d5f5f.");
     categoriesRouter = router({
       list: protectedProcedure.query(({ ctx }) => listCategories(ctx.user.id)),
+      /**
+       * Categories with the number of live ideas filed under each.
+       *
+       * `ideas.category` is free text, not a foreign key, so deleting a category
+       * cannot cascade and cannot be blocked — it simply leaves those ideas naming
+       * something that no longer exists. Showing the count lets the settings
+       * screen say so before anyone clicks.
+       */
+      listWithUsage: protectedProcedure.query(async ({ ctx }) => {
+        const categories = await listCategories(ctx.user.id);
+        return Promise.all(
+          categories.map(async (category) => ({
+            ...category,
+            ideaCount: await countIdeasInCategory(ctx.user.id, category.name)
+          }))
+        );
+      }),
       create: protectedProcedure.input(
         z2.object({
           name: z2.string().trim().min(1, "Name the category.").max(100),
@@ -2432,9 +2459,7 @@ var init_ideas = __esm({
        * wants rather than which direction to move, so an undo is the same call
        * with the flag flipped.
        */
-      setArchived: protectedProcedure.input(
-        z4.object({ id: z4.number().int().positive(), archived: z4.boolean() })
-      ).mutation(async ({ ctx, input }) => {
+      setArchived: protectedProcedure.input(z4.object({ id: z4.number().int().positive(), archived: z4.boolean() })).mutation(async ({ ctx, input }) => {
         const updated = await setIdeaArchived(
           input.id,
           ctx.user.id,
@@ -3196,9 +3221,7 @@ var init_thoughts = __esm({
         ({ ctx }) => listArchivedThoughts(ctx.user.id)
       ),
       /** Same shape as the ideas router: state, not direction, so undo is trivial. */
-      setArchived: protectedProcedure.input(
-        z10.object({ id: z10.number().int().positive(), archived: z10.boolean() })
-      ).mutation(async ({ ctx, input }) => {
+      setArchived: protectedProcedure.input(z10.object({ id: z10.number().int().positive(), archived: z10.boolean() })).mutation(async ({ ctx, input }) => {
         const updated = await setThoughtArchived(
           input.id,
           ctx.user.id,

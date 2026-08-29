@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   continueList,
+  escapeHtml,
   insertLink,
+  toPlainText,
   togglePrefix,
   toggleWrap,
-  toPlainText,
 } from "./markdown";
 
 describe("toggleWrap", () => {
@@ -87,6 +88,24 @@ describe("toPlainText", () => {
   it("keeps a link's destination, since a bare label loses information", () => {
     expect(toPlainText("[docs](https://example.com)")).toBe(
       "docs (https://example.com)"
+    );
+  });
+});
+
+describe("escapeHtml", () => {
+  it("neutralises markup so an exported document cannot be broken by a title", () => {
+    expect(escapeHtml('<script>alert("x")</script>')).toBe(
+      "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;"
+    );
+  });
+
+  it("escapes ampersands first, so entities are not double-built", () => {
+    expect(escapeHtml("Tom & Jerry <3")).toBe("Tom &amp; Jerry &lt;3");
+  });
+
+  it("leaves ordinary prose alone", () => {
+    expect(escapeHtml("A perfectly normal sentence.")).toBe(
+      "A perfectly normal sentence."
     );
   });
 });

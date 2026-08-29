@@ -235,9 +235,18 @@ function NewIdeaForm({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState(categories[0]?.name ?? "");
+  const [customCategory, setCustomCategory] = useState(categories.length === 0);
 
   const utils = trpc.useUtils();
   const [, navigate] = useLocation();
+  const addCategory = trpc.categories.create.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.categories.list.invalidate(),
+        utils.categories.listWithUsage.invalidate(),
+      ]);
+    },
+  });
   const create = trpc.ideas.create.useMutation({
     onSuccess: async idea => {
       await Promise.all([
@@ -261,11 +270,24 @@ function NewIdeaForm({
         onSubmit={event => {
           event.preventDefault();
           if (!title.trim() || !chosenCategory) return;
-          create.mutate({
-            title: title.trim(),
-            description: description.trim() || undefined,
-            category: chosenCategory,
-          });
+          void (async () => {
+            const name = chosenCategory.trim();
+            const isNew = !categories.some(option => option.name === name);
+            if (isNew) {
+              // Best effort: if this fails the idea still saves, it just
+              // will not have a matching entry in the category list.
+              try {
+                await addCategory.mutateAsync({ name });
+              } catch {
+                /* a duplicate name is fine — the idea still files correctly */
+              }
+            }
+            create.mutate({
+              title: title.trim(),
+              description: description.trim() || undefined,
+              category: name,
+            });
+          })();
         }}
       >
         <div className="space-y-2">
@@ -291,8 +313,22 @@ function NewIdeaForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="idea-category">Category</Label>
-          {categories.length > 0 ? (
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="idea-category">Category</Label>
+            {categories.length > 0 && (
+              <button
+                type="button"
+                className="text-xs text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
+                onClick={() => {
+                  setCustomCategory(value => !value);
+                  setCategory("");
+                }}
+              >
+                {customCategory ? "Pick an existing one" : "New category"}
+              </button>
+            )}
+          </div>
+          {categories.length > 0 && !customCategory ? (
             <Select value={chosenCategory} onValueChange={setCategory}>
               <SelectTrigger id="idea-category">
                 <SelectValue placeholder="Pick one" />
@@ -306,12 +342,15 @@ function NewIdeaForm({
               </SelectContent>
             </Select>
           ) : (
-            // Categories are user-defined, so a brand-new account types its own.
+            // Categories are the writer's own, so one can be invented here
+            // rather than only in settings — the interruption is the point to
+            // avoid, since naming a category is not why you opened this form.
             <Input
               id="idea-category"
               value={category}
               onChange={event => setCategory(event.target.value)}
-              placeholder="Name a category"
+              placeholder="Recipes, Letters, Field notes…"
+              maxLength={100}
             />
           )}
         </div>

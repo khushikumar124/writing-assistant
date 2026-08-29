@@ -3,6 +3,7 @@ import { z } from "zod";
 import { PLATFORMS } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
 import {
+  countIdeasInCategory,
   createCategory,
   deleteCategory,
   getPreferences,
@@ -17,6 +18,24 @@ const hexColor = z
 
 export const categoriesRouter = router({
   list: protectedProcedure.query(({ ctx }) => listCategories(ctx.user.id)),
+
+  /**
+   * Categories with the number of live ideas filed under each.
+   *
+   * `ideas.category` is free text, not a foreign key, so deleting a category
+   * cannot cascade and cannot be blocked — it simply leaves those ideas naming
+   * something that no longer exists. Showing the count lets the settings
+   * screen say so before anyone clicks.
+   */
+  listWithUsage: protectedProcedure.query(async ({ ctx }) => {
+    const categories = await listCategories(ctx.user.id);
+    return Promise.all(
+      categories.map(async category => ({
+        ...category,
+        ideaCount: await countIdeasInCategory(ctx.user.id, category.name),
+      }))
+    );
+  }),
 
   create: protectedProcedure
     .input(

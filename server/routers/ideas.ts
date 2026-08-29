@@ -180,9 +180,7 @@ export const ideasRouter = router({
    * with the flag flipped.
    */
   setArchived: protectedProcedure
-    .input(
-      z.object({ id: z.number().int().positive(), archived: z.boolean() })
-    )
+    .input(z.object({ id: z.number().int().positive(), archived: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       const updated = await setIdeaArchived(
         input.id,

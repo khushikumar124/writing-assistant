@@ -182,3 +182,19 @@ export function toPlainText(source: string): string {
     .replace(/\[(.+?)\]\((.+?)\)/g, "$1 ($2)")
     .trim();
 }
+
+/**
+ * Escapes text for interpolation into HTML.
+ *
+ * Used by the Word export, which builds a document by hand rather than going
+ * through the sanitiser: a title containing `<` would otherwise open a tag in
+ * the exported file.
+ */
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}

@@ -798,3 +798,95 @@
     }
   }
 }
+
+/* ---------------------------------------------------------------------------
+   The editor's page.
+
+   A blank rectangle is an intimidating thing to face. Ruled lines and a warm
+   sheet give the draft somewhere to sit — the feel of a notebook rather than a
+   text box. The rules are drawn with a repeating gradient whose period is
+   exactly `--rule-height`, and the textarea's line-height is set to the same
+   value, so typed lines land on the rules instead of drifting past them.
+
+   Scoped as its own palette rather than reusing the app's theme variables: the
+   page can be warm paper while the surrounding app stays dark, which is the
+   combination most people seem to want when writing at night.
+--------------------------------------------------------------------------- */
+
+.notebook {
+  --rule-height: 2rem;
+}
+
+.notebook-paper {
+  --paper: #f4ecd8;
+  --paper-ink: #33291f;
+  --paper-rule: #ded0b0;
+  --paper-margin: #d3907f;
+  --paper-muted: #8a7a63;
+}
+
+.notebook-night {
+  --paper: #2b403e;
+  --paper-ink: #f6ebd5;
+  --paper-rule: #3a524e;
+  --paper-margin: #8a5f55;
+  --paper-muted: #9fb3ad;
+}
+
+.notebook-surface {
+  background-color: var(--paper);
+  color: var(--paper-ink);
+  line-height: var(--rule-height);
+  background-image:
+    /* the margin rule, then the horizontal lines */
+    linear-gradient(
+      to right,
+      transparent 0 calc(3.25rem - 1px),
+      var(--paper-margin) calc(3.25rem - 1px) 3.25rem,
+      transparent 3.25rem
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 calc(var(--rule-height) - 1px),
+      var(--paper-rule) calc(var(--rule-height) - 1px) var(--rule-height)
+    );
+  /* Offset so the first rule sits under the first line of text, not above it. */
+  background-position:
+    0 0,
+    0 var(--rule-offset, 0.35rem);
+}
+
+.notebook-surface::placeholder {
+  color: var(--paper-muted);
+}
+
+/* The margin rule is a left-hand gutter in a notebook, so keep text clear of it. */
+.notebook-surface {
+  padding-left: 4.25rem;
+}
+
+@media (max-width: 640px) {
+  .notebook-surface {
+    padding-left: 3.75rem;
+  }
+}
+
+/* Reading view sits on the same sheet, minus the rules — printed, not written. */
+.notebook-page {
+  background-color: var(--paper);
+  color: var(--paper-ink);
+}
+
+/* Print: the sheet is the point, the app chrome is not. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .notebook-surface,
+  .notebook-page {
+    background: #fff;
+    color: #000;
+    background-image: none;
+    padding-left: 0;
+  }
+}

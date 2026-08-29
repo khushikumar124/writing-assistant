@@ -187,9 +187,7 @@ export const thoughtsRouter = router({
 
   /** Same shape as the ideas router: state, not direction, so undo is trivial. */
   setArchived: protectedProcedure
-    .input(
-      z.object({ id: z.number().int().positive(), archived: z.boolean() })
-    )
+    .input(z.object({ id: z.number().int().positive(), archived: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       const updated = await setThoughtArchived(
         input.id,

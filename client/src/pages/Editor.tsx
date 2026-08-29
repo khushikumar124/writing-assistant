@@ -3,6 +3,12 @@ import ShipDialog from "@/components/ShipDialog";
 import ThoughtRail from "@/components/ThoughtRail";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -12,11 +18,12 @@ import {
 import { countWords, readingTimeMinutes, relativeTime } from "@/lib/format";
 import {
   continueList,
+  escapeHtml,
   insertLink,
   renderMarkdown,
+  toPlainText,
   togglePrefix,
   toggleWrap,
-  toPlainText,
   type Edit,
   type Selection,
 } from "@/lib/markdown";
@@ -31,10 +38,12 @@ import {
   Loader2,
   Maximize2,
   Minimize2,
+  Moon,
   PanelRightClose,
   PanelRightOpen,
   PenLine,
   Send,
+  Sun,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -73,6 +82,23 @@ export default function Editor() {
   const [dirty, setDirty] = useState(false);
   const [railOpen, setRailOpen] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
+  /**
+   * The page's own light/dark, independent of the app's.
+   *
+   * Writing at night on a dark interface but a warm sheet is a common
+   * preference, and the reverse happens too, so this is remembered separately
+   * rather than following the global theme.
+   */
+  const [paper, setPaper] = useState<"paper" | "night">(() => {
+    const stored = localStorage.getItem("editor-paper");
+    if (stored === "paper" || stored === "night") return stored;
+    return document.documentElement.classList.contains("dark")
+      ? "night"
+      : "paper";
+  });
+  useEffect(() => {
+    localStorage.setItem("editor-paper", paper);
+  }, [paper]);
   const [preview, setPreview] = useState(false);
   const [shipping, setShipping] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -309,6 +335,52 @@ export default function Editor() {
     URL.revokeObjectURL(url);
   };
 
+  const slug = () =>
+    idea.title
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-|-$/g, "")
+      .toLowerCase() || "draft";
+
+  const download = (blob: Blob, extension: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${slug()}.${extension}`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  /**
+   * Word, via HTML rather than a real .docx.
+   *
+   * Word and Google Docs both open an HTML file with this content type and
+   * keep the headings, emphasis and paragraph breaks — which is the whole
+   * point of exporting to Word. Generating a true .docx would mean shipping a
+   * document-construction library to every visitor for a button most will
+   * press once.
+   */
+  const exportWord = () => {
+    const html = `<!DOCTYPE html><html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>${escapeHtml(idea.title)}</title></head><body><h1>${escapeHtml(idea.title)}</h1>${renderMarkdown(content)}</body></html>`;
+    download(new Blob([html], { type: "application/msword" }), "doc");
+  };
+
+  /**
+   * PDF via the browser's own print dialog ("Save as PDF").
+   *
+   * The print stylesheet drops the app chrome and puts the piece on a white
+   * page. This renders text the way the reader's system does, keeps it
+   * selectable, and adds nothing to the bundle.
+   */
+  const exportPdf = () => {
+    const wasPreviewing = preview;
+    setPreview(true);
+    // Let the preview paint before the dialog freezes the page.
+    window.setTimeout(() => {
+      window.print();
+      if (!wasPreviewing) setPreview(false);
+    }, 150);
+  };
+
   /**
    * The last mile into Substack or Medium, neither of which has a write API.
    * Copies the piece as plain text with the markdown syntax resolved, so it can
@@ -329,9 +401,14 @@ export default function Editor() {
       : `saved ${relativeTime(draftQuery.data?.lastSavedAt)}`;
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div
+      className={cn(
+        "notebook flex min-h-screen flex-col bg-background",
+        paper === "night" ? "notebook-night" : "notebook-paper"
+      )}
+    >
       {!focusMode && (
-        <header className="sticky top-0 z-40 border-b border-border bg-background/85 px-4 backdrop-blur-sm">
+        <header className="no-print sticky top-0 z-40 border-b border-border bg-background/85 px-4 backdrop-blur-sm">
           <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 sm:gap-4">
             <button
               onClick={() => navigate("/ideas")}
@@ -389,13 +466,39 @@ export default function Editor() {
               <ClipboardCopy className="size-4" aria-hidden />
             </Button>
 
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" aria-label="Download">
+                  <Download className="size-4" aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={exportWord}>
+                  Word document
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={exportPdf}>
+                  PDF — via print
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={exportMarkdown}>
+                  Markdown
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button
               variant="ghost"
               size="sm"
-              onClick={exportMarkdown}
-              aria-label="Export as Markdown"
+              onClick={() =>
+                setPaper(value => (value === "paper" ? "night" : "paper"))
+              }
+              aria-label={paper === "paper" ? "Dark page" : "Light page"}
+              title={paper === "paper" ? "Dark page" : "Light page"}
             >
-              <Download className="size-4" aria-hidden />
+              {paper === "paper" ? (
+                <Moon className="size-4" aria-hidden />
+              ) : (
+                <Sun className="size-4" aria-hidden />
+              )}
             </Button>
 
             <Button
@@ -462,7 +565,7 @@ export default function Editor() {
       >
         {preview ? (
           <article
-            className="prose prose-lg mx-auto w-full max-w-3xl flex-1 px-6 py-10 dark:prose-invert"
+            className="notebook-page prose prose-lg mx-auto w-full max-w-3xl flex-1 px-6 py-10 dark:prose-invert"
             // Sanitised in renderMarkdown before it ever reaches here.
             dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
           />
@@ -479,7 +582,7 @@ export default function Editor() {
             aria-label={`Draft of ${idea.title}`}
             spellCheck
             className={cn(
-              "w-full flex-1 resize-none bg-transparent px-6 py-10 text-lg leading-relaxed focus:outline-none",
+              "notebook-surface w-full flex-1 resize-none py-10 text-lg focus:outline-none",
               (!railOpen || focusMode) && "mx-auto max-w-3xl"
             )}
             style={{ fontFamily: "'Crimson Text', Georgia, serif" }}
@@ -494,7 +597,7 @@ export default function Editor() {
       {/* A quiet footer that only ever reports progress, never a deficit. */}
       <footer
         className={cn(
-          "sticky bottom-0 border-t border-border bg-background/85 px-6 py-2 backdrop-blur-sm",
+          "no-print sticky bottom-0 border-t border-border bg-background/85 px-6 py-2 backdrop-blur-sm",
           focusMode && "border-transparent bg-transparent"
         )}
       >

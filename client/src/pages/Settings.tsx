@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/contexts/ThemeContext";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/useAuth";
-import { Download, Loader2 } from "lucide-react";
+import { Download, Loader2, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Link } from "wouter";
@@ -35,6 +35,7 @@ export default function Settings() {
 
         <ProfileSection />
         <GoalSection />
+        <CategoriesSection />
         <ReminderSettings />
         <AppearanceSection />
         <ImportNotes />
@@ -169,6 +170,121 @@ function ProfileSection() {
  * that produces guilt makes people close the tab, which is the opposite of what
  * it is for.
  */
+/**
+ * Categories are the app's only taxonomy, and they are entirely the writer's.
+ * The four an account starts with are a starting point, not a fixed set — the
+ * schema has always stored them per user, this just exposes it.
+ */
+function CategoriesSection() {
+  const utils = trpc.useUtils();
+  const { data: categories = [], isPending } =
+    trpc.categories.listWithUsage.useQuery();
+  const [name, setName] = useState("");
+
+  const invalidate = () =>
+    Promise.all([
+      utils.categories.listWithUsage.invalidate(),
+      utils.categories.list.invalidate(),
+    ]);
+
+  const create = trpc.categories.create.useMutation({
+    onSuccess: async () => {
+      await invalidate();
+      setName("");
+      toast.success("Category added.");
+    },
+    onError: error => toast.error(error.message),
+  });
+
+  const remove = trpc.categories.delete.useMutation({
+    onSuccess: async () => {
+      await invalidate();
+      toast.success("Category removed.");
+    },
+    onError: error => toast.error(error.message),
+  });
+
+  return (
+    <Card className="space-y-4 p-6">
+      <div>
+        <h2 className="text-xl">Categories</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          However you sort your writing — essays, recipes, letters, whatever you
+          actually write.
+        </p>
+      </div>
+
+      {isPending ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : categories.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No categories yet. Add your first below.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {categories.map(category => (
+            <li
+              key={category.id}
+              className="flex items-center gap-3 rounded-lg border border-border px-3 py-2"
+            >
+              <span
+                className="size-3 shrink-0 rounded-full"
+                style={{ backgroundColor: category.color ?? "#0d5f5f" }}
+                aria-hidden
+              />
+              <span className="min-w-0 flex-1 truncate">{category.name}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {category.ideaCount === 0
+                  ? "unused"
+                  : `${category.ideaCount} idea${category.ideaCount === 1 ? "" : "s"}`}
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={remove.isPending}
+                onClick={() => {
+                  // Deleting cannot cascade — ideas store the category name as
+                  // text — so say plainly what will be left behind.
+                  const warning =
+                    category.ideaCount > 0
+                      ? `${category.ideaCount} idea${category.ideaCount === 1 ? "" : "s"} still filed under "${category.name}". They will keep the label, but it will no longer be one of your categories. Delete it?`
+                      : `Delete the category "${category.name}"?`;
+                  if (window.confirm(warning)) {
+                    remove.mutate({ id: category.id });
+                  }
+                }}
+                aria-label={`Delete ${category.name}`}
+              >
+                <Trash2 className="size-4" aria-hidden />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form
+        className="flex gap-2"
+        onSubmit={event => {
+          event.preventDefault();
+          if (!name.trim()) return;
+          create.mutate({ name: name.trim() });
+        }}
+      >
+        <Input
+          value={name}
+          onChange={event => setName(event.target.value)}
+          placeholder="Add a category — Recipes, Letters, Field notes…"
+          maxLength={100}
+          aria-label="New category name"
+        />
+        <Button type="submit" disabled={!name.trim() || create.isPending}>
+          Add
+        </Button>
+      </form>
+    </Card>
+  );
+}
+
 function GoalSection() {
   const utils = trpc.useUtils();
   const { data: preferences } = trpc.categories.getPreferences.useQuery();
